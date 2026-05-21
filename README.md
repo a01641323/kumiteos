@@ -36,12 +36,12 @@ local app at the cloud so it can redeem the code:
 
 ```bash
 cd apps/local
-KARATE_CLOUD_URL=https://karate-local.vercel.app pnpm start
+KARATE_CLOUD_URL=https://kumiteos.vercel.app pnpm start
 ```
 
 Then open **<http://localhost:4747>** in your browser. The lock screen
 appears — paste the 6-digit code you got from
-`https://karate-local.vercel.app/request` and the app unlocks for 24 hours.
+`https://kumiteos.vercel.app/request` and the app unlocks for 24 hours.
 
 If you want to run fully offline against a locally-issued claim code
 (developer mode, no cloud activation), drop the env var:
@@ -54,7 +54,7 @@ Either way the server binds to `0.0.0.0:4747` and prints its reachable
 URLs on boot:
 
 ```
-[karate-local] verifying JWTs with cloud public key from https://karate-local.vercel.app
+[karate-local] verifying JWTs with cloud public key from https://kumiteos.vercel.app
 [karate-server] listening on http://0.0.0.0:4747
 [karate-server] open on this machine:  http://localhost:4747
 [karate-server] open on the LAN:       http://192.168.1.42:4747
