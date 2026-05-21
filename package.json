@@ -5,7 +5,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "start": "pnpm --filter @karate/server start",
+    "start": "pnpm --filter @karate/local start",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules"

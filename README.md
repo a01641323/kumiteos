@@ -11,7 +11,7 @@ required on client machines.
 karate/
 ├── apps/
 │   ├── web/      Next.js 15 (App Router) + Tailwind — statically exported to apps/web/out
-│   └── server/   Express + JWT + WebSocket + tournament state engine
+│   └── local/    Express + JWT + WebSocket + tournament state engine (downloadable binary)
 ├── packages/
 │   └── core/     Pure tournament/engine logic + types (TypeScript)
 ├── legacy/       Original single-file prototype (preserved for reference)
@@ -26,7 +26,7 @@ pnpm build
 ```
 
 The build produces a static frontend at `apps/web/out/` and a compiled
-server at `apps/server/dist/`.
+server at `apps/local/dist/`.
 
 ## Starting the server
 
@@ -120,7 +120,7 @@ Chrome / Edge 90+, Firefox 90+, Safari 15+. Web Crypto, `WebSocket`, and
 ## Development
 
 ```bash
-pnpm --filter @karate/server dev   # server (tsx watch)
+pnpm --filter @karate/local dev   # local app server (tsx watch)
 pnpm --filter @karate/web dev      # Next.js dev server (port 3000)
 ```
 

@@ -27,7 +27,7 @@ export function defaultDataDir(): string {
 }
 
 export function defaultStaticDir(): string {
-  // apps/server/dist/standalone.js → ../../web/out
+  // apps/local/dist/standalone.js → ../../web/out
   return path.resolve(__dirname, "..", "..", "web", "out");
 }
 
