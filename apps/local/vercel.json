@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "_note": "apps/local is the downloadable Express+WebSocket binary that ships to operator machines. It is NOT a Vercel serverless app. The Vercel target for this repo is apps/cloud. If Vercel auto-detected this directory, change Root Directory to apps/cloud or delete the project.",
+  "ignoreCommand": "echo 'apps/local is a downloadable binary, not a Vercel app; deploy apps/cloud instead' && exit 1"
+}
