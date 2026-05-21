@@ -1,0 +1,95 @@
+═══════════════════════════════════════════════════════════════
+  KARATE TOURNAMENT · ADMIN TERMINAL — COMMAND REFERENCE
+═══════════════════════════════════════════════════════════════
+
+Acceso: Cmd+1+2+3 (soltar) → escribir la secuencia secreta
+        El terminal se abre sobre cualquier pantalla activa.
+
+───────────────────────── GENERAL ─────────────────────────────
+
+  help                        Muestra todos los comandos
+  clear                       Limpia el terminal
+  demo                        Carga torneo de demo (4 categorías, ~180 competidores)
+
+───────────────────────── LICENCIAS ────────────────────────────
+
+  license list                Lista todas las licencias con código, estado, expiración
+  license create              Genera un nuevo código de acceso (wizard interactivo)
+                                → pide: etiqueta, minutos de expiración
+                                → muestra el código de 6 dígitos una sola vez
+  license revoke <etiqueta>   Revoca una licencia (el dispositivo pierde acceso al renovar)
+  license transfer <etiqueta> Resetea el fingerprint de máquina; el código se puede
+                                reclamar en un dispositivo nuevo
+  license extend <etiqueta>   Extiende la expiración N minutos (wizard interactivo)
+  ttl set <minutos>           Cambia el TTL de sesión kiosk en minutos
+
+───────────────────────── CATEGORÍAS ───────────────────────────
+
+  category list               Lista todas las categorías con cinturones y rango de edad
+  category add                Agrega categoría (wizard interactivo)
+                                → pide: nombre, cinturones, edad mínima, edad máxima
+  category delete <nombre>    Elimina la categoría con ese nombre exacto
+
+───────────────────────── COMPETIDORES ─────────────────────────
+
+  competitor list             Lista todos los competidores
+  competitor list <categoría> Filtra competidores por nombre de categoría
+  competitor add              Agrega competidor (wizard interactivo)
+                                → pide: nombre, apellido, cinturón (número), edad
+  competitor remove <#>       Elimina el competidor en la posición # de la lista
+  competitor import           Abre Finder/Explorer para importar CSV
+                                Formato CSV: nombre,apellido,beltColor,age
+  competitor export           Descarga CSV con todos los competidores
+
+───────────────────────── SEMILLA (SEEDING) ────────────────────
+
+  seed                        Muestra la semilla actual del torneo
+  seed new                    Genera una nueva semilla aleatoria
+  seed set <valor>            Establece una semilla explícita (entero)
+                                Misma semilla = mismos brackets reproducibles
+
+───────────────────────── CONFIGURACIÓN ────────────────────────
+
+  setup                       Muestra la configuración actual del torneo
+  setup size <4|8|16>         Tamaño de grupo por subcategoría
+  setup mode <combat|kata|both>  Modo de disciplina
+  setup pointdiff <n>         Límite de diferencia de puntos para cierre automático
+                                (0 = desactivado)
+  areas set <n>               Número de áreas de competencia (1–10)
+  areas list                  Lista las subcategorías asignadas a cada área
+  area assign <subId> <n>     Asigna una subcategoría al área n (índice base 0)
+                                Los IDs de subcategoría se ven con "areas list"
+
+───────────────────────── LOGO ─────────────────────────────────
+
+  logo                        Muestra info del logo actual (nombre, tamaño)
+  logo upload                 Abre Finder/Explorer para subir logo
+                                Formatos: PNG, JPG, SVG — máx 2 MB
+                                Se muestra en panel privado y marcador público
+  logo remove                 Elimina el logo actual
+
+───────────────────────── RED (NETWORK) ────────────────────────
+
+  net status                  Muestra modo actual, IP, puerto y clientes conectados
+  net server                  Convierte esta computadora en el servidor central
+                                (los clientes se sincronizan en tiempo real vía WebSocket)
+  net standalone              Modo independiente (sin red)
+  net scan                    Busca servidores disponibles en la red local (LAN)
+  net connect <serverId>      Conecta como cliente al servidor con ese ID
+                                Los IDs aparecen con "net scan"
+  net disconnect              Desconecta todos los clientes (solo en modo servidor)
+
+═══════════════════════════════════════════════════════════════
+  NOTAS
+═══════════════════════════════════════════════════════════════
+
+• Las flechas ↑ ↓ navegan el historial de comandos.
+• El terminal no se puede cerrar con Escape — solo con el chord Cmd+1+2+3.
+• Los códigos de licencia se muestran UNA sola vez al generarlos. Cópialos
+  de inmediato.
+• "competitor remove" usa el número de fila de "competitor list", no el ID
+  interno.
+• Cinturones para "category add" y "competitor add":
+    1=White  2=Yellow  3=Orange  4=Green  5=Blue  6=Red  7=Brown  8=Black
+  Se puede escribir "all" para seleccionar todos los cinturones.
+═══════════════════════════════════════════════════════════════
