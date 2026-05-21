@@ -1,9 +1,11 @@
+import { oauthConfigured } from "@/auth";
 import { listPending } from "@/lib/requests";
 import { GrantButton, RejectButton } from "./actions-ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function RequestsPage() {
+  if (!oauthConfigured) return null; // Layout shows the misconfig screen.
   const pending = await listPending();
   return (
     <div className="space-y-6">

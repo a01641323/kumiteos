@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { oauthConfigured } from "@/auth";
 import { listPending } from "@/lib/requests";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
+  if (!oauthConfigured) return null; // The layout renders the misconfig screen.
   const pending = await listPending();
   return (
     <div className="space-y-6">
