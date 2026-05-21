@@ -103,6 +103,14 @@ interface StoreApi {
    */
   startCategory: (catId: string) => void;
   loadMockTournament: (skipConfirm?: boolean) => void;
+  /**
+   * Tournament-data wipe: drops every participant, every bracket, every
+   * area assignment, and the live scoreboard. Keeps tournament settings
+   * (subcategorySize / disciplineMode / pointDifference / areaCount),
+   * category definitions, and the license / kiosk session. Use from the
+   * superadmin terminal's `wipe` command.
+   */
+  wipeData: () => void;
   resetScoreboard: (skipConfirm?: boolean) => void;
   eliminate: (side: "blue" | "red") => void;
   addPoints: (side: "blue" | "red", n: number) => void;
@@ -651,6 +659,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const mock = generateMockTournament();
           s.tournament.categoryDefs = mock.categoryDefs;
           replaceParticipantsImpl(s, mock.participants.map(({ id: _id, ...rest }) => rest));
+        });
+      },
+      wipeData: () => {
+        // Confirmation is handled in the terminal (two-stage), so this
+        // path is the actual mutation. Drop participants → rebuildAll
+        // empties every category bracket. Reset scoreboard separately
+        // because replaceParticipants doesn't touch s.match.
+        update((s) => {
+          replaceParticipantsImpl(s, []);
+          s.tournament.areaAssignments = {};
+          resetLiveScoreboard(s);
+          s.jury = null;
         });
       },
       resetScoreboard: (skipConfirm) => {

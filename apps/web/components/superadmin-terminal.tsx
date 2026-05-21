@@ -109,6 +109,7 @@ export function SuperadminTerminal() {
     loadMockTournament,
     setLogoUrl,
     resetScoreboard,
+    wipeData,
   } = useStore();
   const { token: authToken } = useAuth();
   const { status: netStatus, isElectron } = useNetwork();
@@ -363,6 +364,11 @@ export function SuperadminTerminal() {
           "═══════════════════ SCOREBOARD ═════════════════",
           "  reset scoreboard          reset live match scores to zero",
           "",
+          "═══════════════════ DANGER ZONE ════════════════",
+          "  wipe                      preview the data wipe",
+          "  wipe confirm              remove participants, brackets,",
+          "                            area assignments, scoreboard",
+          "",
           "═══════════════════ LOGO ═══════════════════════",
           "  logo                      show current logo info",
           "  logo upload               open file picker (PNG/JPG/SVG, max 2MB)",
@@ -433,6 +439,44 @@ export function SuperadminTerminal() {
           return;
         }
         print("err", "Usage: reset scoreboard");
+        return;
+      }
+
+      // ── wipe ──────────────────────────────────────────────────────────
+      // Removes the tournament's runtime data — participants, brackets,
+      // area assignments, scoreboard. Keeps:
+      //   - category definitions (the schema)
+      //   - tournament settings (subcategory size, discipline mode, areas)
+      //   - licenses + kiosk session + uploaded logo
+      // Single-stage with explicit `wipe confirm` to avoid an accidental
+      // double-Enter destroying the day's work.
+      if (cmd === "wipe") {
+        if (sub !== "confirm") {
+          const pCount = state.tournament.participants.length;
+          const catsWithBrackets = state.tournament.categoryOrder.filter((id) =>
+            (state.tournament.categories[id]?.subcategories.length ?? 0) > 0,
+          ).length;
+          prints("err", [
+            "⚠ This will REMOVE all tournament data:",
+            `   · ${pCount} participant${pCount === 1 ? "" : "s"}`,
+            `   · ${catsWithBrackets} categor${catsWithBrackets === 1 ? "y" : "ies"} with brackets`,
+            "   · all area assignments",
+            "   · the live scoreboard",
+            "",
+            "Settings, category definitions, licenses and the logo are kept.",
+            "There is NO UNDO.",
+            "",
+          ]);
+          print("dim", "To proceed, run:  wipe confirm");
+          return;
+        }
+        askConfirm(
+          ["⚠ FINAL CHECK — wipe everything now?"],
+          async () => {
+            wipeData();
+            print("hi", "✓ Tournament data wiped. Settings + license preserved.");
+          },
+        );
         return;
       }
 
