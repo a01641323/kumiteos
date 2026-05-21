@@ -66,7 +66,30 @@ const handlers: Record<string, Handler> = {
   },
   SELECT_MATCH(s, { ref }) {
     if (!ref) throw new ActionRejectedError("invalid", "missing ref");
+    const cat = s.tournament.categories[ref.categoryId];
+    if (cat && cat.started === false) {
+      throw new ActionRejectedError(
+        "category_not_started",
+        "Category has not been started yet. Confirm arrivals from the Check-in tab first.",
+      );
+    }
     (core as any).loadMatchToScoreboardImpl(s, ref);
+  },
+  MARK_ARRIVED(s, { participantId, arrived }) {
+    if (typeof participantId !== "string") {
+      throw new ActionRejectedError("invalid", "missing participantId");
+    }
+    const ok = (core as any).markParticipantArrived(s, participantId, !!arrived);
+    if (!ok) throw new ActionRejectedError("invalid", "participant not found");
+  },
+  START_CATEGORY(s, { catId }) {
+    if (typeof catId !== "string") {
+      throw new ActionRejectedError("invalid", "missing catId");
+    }
+    const cat = s.tournament.categories[catId];
+    if (!cat) throw new ActionRejectedError("invalid", "category not found");
+    if (cat.started) return; // idempotent — silent success
+    (core as any).startCategory(s, catId);
   },
   ADVANCE_WINNER(s, payload) {
     const ref = (payload && payload.ref) || s.match.activeMatchRef;

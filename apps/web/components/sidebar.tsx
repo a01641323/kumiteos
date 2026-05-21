@@ -46,18 +46,30 @@ export function AdminSidebar({ onOpenTournamentSettings }: Props) {
           if (filterByArea && visibleSubs.length === 0) return null;
 
           const isActiveCat = cid === t.activeCategoryId;
+          const isLocked = cat.started === false;
           return (
-            <div key={cid} className="cat-group">
+            <div key={cid} className={`cat-group ${isLocked ? "locked" : ""}`}>
               <button
                 className={`cat-btn ${isActiveCat ? "active" : ""}`}
                 onClick={() => setActiveCategory(cid)}
               >
                 <span>{cat.name}</span>
                 <span className="count">
-                  {cat.competitors.length} · {visibleSubs.length}
+                  {isLocked
+                    ? `${cat.competitors.length} · locked`
+                    : `${cat.competitors.length} · ${visibleSubs.length}`}
                 </span>
               </button>
-              {isActiveCat ? (
+              {isActiveCat && isLocked ? (
+                <div className="cat-locked-note">
+                  <span className="lock-icon" aria-hidden>⛌</span>
+                  <div>
+                    <div className="lock-title">Awaiting check-in</div>
+                    <div className="lock-sub">Confirm arrivals from the Check-in tab to unlock brackets.</div>
+                  </div>
+                </div>
+              ) : null}
+              {isActiveCat && !isLocked ? (
                 <div className="subcat-list">
                   {visibleSubs.map((sub) => {
                     const status = subcategoryStatus(sub);

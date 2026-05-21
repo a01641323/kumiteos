@@ -55,6 +55,12 @@ export function setActiveDiscipline(catId: string, subId: string, discipline: "c
 export function resolveJury(chosenName: string): NetworkActionEnvelope {
   return { actionId: id(), actionType: "RESOLVE_JURY", payload: { chosenName }, ts: Date.now() };
 }
+export function markArrived(participantId: string, arrived: boolean): NetworkActionEnvelope {
+  return { actionId: id(), actionType: "MARK_ARRIVED", payload: { participantId, arrived }, ts: Date.now() };
+}
+export function startCategory(catId: string): NetworkActionEnvelope {
+  return { actionId: id(), actionType: "START_CATEGORY", payload: { catId }, ts: Date.now() };
+}
 /** Wholesale state replacement, used by complex superadmin operations. */
 export function replaceState(state: unknown): NetworkActionEnvelope {
   return { actionId: id(), actionType: "REPLACE_STATE", payload: { state }, ts: Date.now() };

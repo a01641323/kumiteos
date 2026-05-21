@@ -26,6 +26,13 @@ export interface Participant {
   apellido: string;
   beltColor: BeltColor;
   age: number;
+  /**
+   * Whether this participant has checked in for the tournament. Set via the
+   * Check-in tab on tournament day. Defaults to false on CSV import so the
+   * operator must explicitly mark arrivals. Loaders from older state files
+   * fill this in as `true` to keep legacy snapshots playable.
+   */
+  arrived?: boolean;
 }
 
 export interface MatchResultSide {
@@ -104,6 +111,12 @@ export interface Category {
   subcategories: Subcategory[];
   activeSubcategoryId: string | null;
   champion: Partial<Record<Discipline, string>>;
+  /**
+   * Has the operator confirmed arrivals and locked the category in?
+   * Until `started === true`, brackets are NOT built and `SELECT_MATCH`
+   * actions for any of this category's matches are rejected.
+   */
+  started?: boolean;
 }
 
 /**

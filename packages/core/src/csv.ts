@@ -67,7 +67,9 @@ export function parseParticipantsCsv(text: string): CsvParseResult {
       });
       continue;
     }
-    out.push({ nombre, apellido, beltColor: belt, age });
+    // Default `arrived: false` on CSV import so the operator must visit
+    // the Check-in tab to mark who actually showed up on tournament day.
+    out.push({ nombre, apellido, beltColor: belt, age, arrived: false });
   }
   return { participants: out, errors };
 }

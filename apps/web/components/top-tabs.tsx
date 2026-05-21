@@ -6,13 +6,23 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { isElectron, apiGetDownloadInfo, apiPrepareDownload, getServerUrl, type DownloadInfo } from "@/lib/api-client";
 import { NetworkStatusBadge } from "@/components/network-status-badge";
+import { useStore } from "@/lib/store";
 
 export function TopTabs() {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const { status, logout, isKiosk } = useAuth();
+  const { state } = useStore();
   const [downloads, setDownloads] = useState<DownloadInfo | null>(null);
   const [downloading, setDownloading] = useState(false);
+
+  // Show the Check-in tab while at least one category has participants but
+  // hasn't been started yet. Once every category is locked in, hide it
+  // again for a cleaner mid-tournament UI.
+  const showCheckIn = state.tournament.categoryOrder.some((id) => {
+    const cat = state.tournament.categories[id];
+    return cat && !cat.started && cat.competitors.length > 0;
+  });
 
   useEffect(() => {
     if (isElectron() || status.kind !== "authed") return;
@@ -48,6 +58,7 @@ export function TopTabs() {
   // the stealth chord overlay, not a top-tab.
   const tabs: { href: string; label: string; external?: boolean }[] = [
     { href: "/admin", label: "Admin" },
+    ...(showCheckIn ? [{ href: "/check-in", label: "Check-in" }] : []),
     { href: "/private", label: "Private" },
     { href: "/public", label: "Public ↗", external: true },
   ];

@@ -50,6 +50,9 @@ function buildCohort(
       apellido: `${sa} ${sb}`,
       beltColor: beltKey,
       age,
+      // Mock data: assume everyone is already checked in so dev workflows
+      // (mock-load button + immediate scoring) don't need an extra step.
+      arrived: true,
     });
   }
   return out;

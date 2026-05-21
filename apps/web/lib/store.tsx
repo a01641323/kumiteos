@@ -34,7 +34,9 @@ import {
   getSubcategory,
   loadMatchToScoreboardImpl,
   loadState,
+  markParticipantArrived as markParticipantArrivedImpl,
   rebuildAllSubcategories,
+  startCategory as startCategoryImpl,
   removeCategoryDef as removeCategoryDefImpl,
   removeParticipant as removeParticipantImpl,
   replaceParticipants as replaceParticipantsImpl,
@@ -93,6 +95,13 @@ interface StoreApi {
   setAreaCount: (n: number) => void;
   assignSubcategoryToArea: (subcategoryId: string, areaIndex: number) => void;
   setLogoUrl: (url: string | null) => void;
+  /** Toggle a participant's arrival flag from the check-in tab. */
+  markArrived: (participantId: string, arrived: boolean) => void;
+  /**
+   * Lock a category in for the day. Removes participants who didn't arrive,
+   * builds the bracket, and unlocks the category for scoring.
+   */
+  startCategory: (catId: string) => void;
   loadMockTournament: (skipConfirm?: boolean) => void;
   resetScoreboard: (skipConfirm?: boolean) => void;
   eliminate: (side: "blue" | "red") => void;
@@ -616,6 +625,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setAreaCount: (n) => update((s) => setAreaCountImpl(s, n)),
       assignSubcategoryToArea: (subId, areaIdx) => update((s) => assignSubcategoryToAreaImpl(s, subId, areaIdx)),
       setLogoUrl: (url) => update((s) => setLogoUrlImpl(s, url)),
+      markArrived: (participantId, arrived) => {
+        if (mode === "standalone") {
+          updateLocal((s) => { markParticipantArrivedImpl(s, participantId, arrived); });
+        } else {
+          if (!actionable) return;
+          sendNamed(Actions.markArrived(participantId, arrived));
+        }
+      },
+      startCategory: (catId) => {
+        if (mode === "standalone") {
+          updateLocal((s) => { startCategoryImpl(s, catId); });
+        } else {
+          if (!actionable) return;
+          sendNamed(Actions.startCategory(catId));
+        }
+      },
       loadMockTournament: (skipConfirm) => {
         const ok = skipConfirm ||
           (typeof window !== "undefined"

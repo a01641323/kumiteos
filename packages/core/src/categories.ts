@@ -59,6 +59,14 @@ function ageRangeFromDef(def: CategoryDef): AgeRange {
 export interface RebuildOptions {
   seed: number;
   prevActiveCategoryId?: string | null;
+  /**
+   * Which category ids were already marked `started: true` on the previous
+   * state. When a category appears here, its bracket is rebuilt from
+   * arrived-only participants (preserving the locked-in roster). Categories
+   * NOT in this set keep `started: false` and skip bracket generation —
+   * they wait for the operator to run START_CATEGORY from the check-in tab.
+   */
+  prevStarted?: Set<string>;
 }
 
 export function rebuildCategoriesFromParticipants(
@@ -92,7 +100,12 @@ export function rebuildCategoriesFromParticipants(
   for (const def of orderedDefs) {
     const bucket = buckets.get(def.id);
     if (!bucket || bucket.length === 0) continue;
-    const seeded = shuffleSeeded(bucket, opts.seed ^ hashString(def.id));
+    const wasStarted = opts.prevStarted?.has(def.id) ?? false;
+    // For already-started categories the bracket is locked to the
+    // arrived-at-start-time roster. For unstarted ones, we keep the FULL
+    // pool in `competitors` so the check-in tab can list everybody.
+    const sourcePool = wasStarted ? bucket.filter((p) => p.arrived !== false) : bucket;
+    const seeded = shuffleSeeded(sourcePool, opts.seed ^ hashString(def.id));
     const cat: Category = {
       id: def.id,
       name: def.name,
@@ -102,8 +115,14 @@ export function rebuildCategoriesFromParticipants(
       subcategories: [],
       activeSubcategoryId: null,
       champion: {},
+      started: wasStarted,
     };
-    rebuildCategorySubcategories(cat, settings);
+    // Only generate the bracket once the category has been explicitly
+    // started. Unstarted categories appear in state.tournament.categories
+    // (so the check-in UI can iterate them) but with empty subcategories.
+    if (wasStarted) {
+      rebuildCategorySubcategories(cat, settings);
+    }
     categories[def.id] = cat;
   }
 

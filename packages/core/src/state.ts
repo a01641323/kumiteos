@@ -20,6 +20,7 @@ import type {
 } from "./types";
 import { DEFAULT_KEYS } from "./data";
 import { rebuildCategoriesFromParticipants } from "./categories";
+import { rebuildCategorySubcategories } from "./subcategories";
 import { newParticipantId } from "./csv";
 import { defaultCategoryDefs } from "./category-defs";
 import { generateRandomSeed } from "./seeding";
@@ -119,6 +120,22 @@ export function loadState(storage: Storage | null): AppState {
       if (typeof parsed.tournament.meta.seed !== "number") parsed.tournament.meta.seed = generateRandomSeed();
       if (typeof parsed.tournament.meta.logoUrl === "undefined") parsed.tournament.meta.logoUrl = null;
     }
+    // Migrate snapshots that pre-date the check-in flow: participants with
+    // no `arrived` flag are treated as arrived, and categories that already
+    // have brackets are treated as started. This keeps every existing
+    // tournament playable without a manual check-in pass.
+    for (const p of parsed.tournament.participants) {
+      if (typeof p.arrived === "undefined") p.arrived = true;
+    }
+    if (parsed.tournament.categories && typeof parsed.tournament.categories === "object") {
+      for (const catId of Object.keys(parsed.tournament.categories)) {
+        const cat = parsed.tournament.categories[catId];
+        if (!cat) continue;
+        if (typeof cat.started === "undefined") {
+          cat.started = (cat.subcategories?.length ?? 0) > 0;
+        }
+      }
+    }
     return parsed;
   } catch {
     return buildInitialState();
@@ -214,6 +231,12 @@ export function subcategoryStatus(
 // Mutations: tournament + participants
 // =============================================================
 export function rebuildAllSubcategories(state: AppState): void {
+  // Preserve which categories were already started so their brackets get
+  // rebuilt from the arrived roster; new / unstarted ones stay empty.
+  const prevStarted = new Set<string>();
+  for (const catId of state.tournament.categoryOrder) {
+    if (state.tournament.categories[catId]?.started) prevStarted.add(catId);
+  }
   const result = rebuildCategoriesFromParticipants(
     state.tournament.participants,
     state.tournament.settings,
@@ -221,6 +244,7 @@ export function rebuildAllSubcategories(state: AppState): void {
     {
       seed: state.tournament.meta.seed,
       prevActiveCategoryId: state.tournament.activeCategoryId,
+      prevStarted,
     }
   );
   state.tournament.categories = result.categories;
@@ -369,6 +393,65 @@ export function removeParticipant(state: AppState, id: string): void {
   resetLiveScoreboard(state);
   state.jury = null;
 }
+
+/**
+ * Flip a participant's arrival flag. Cheap — does NOT rebuild any bracket.
+ * Brackets only change when the operator runs START_CATEGORY.
+ */
+export function markParticipantArrived(
+  state: AppState,
+  participantId: string,
+  arrived: boolean,
+): boolean {
+  const p = state.tournament.participants.find((x) => x.id === participantId);
+  if (!p) return false;
+  p.arrived = arrived;
+  return true;
+}
+
+/**
+ * Lock a category in for the day: drop participants who didn't arrive from
+ * its competitors list, build the bracket from the rest, and mark
+ * `started: true`. Idempotent on re-call (does nothing if already started).
+ *
+ * Returns the names that were removed so the caller can log / show them.
+ */
+export function startCategory(state: AppState, catId: string): string[] {
+  const cat = state.tournament.categories[catId];
+  if (!cat) return [];
+  if (cat.started) return [];
+  const eligibleIds = new Set<string>();
+  const removedNames: string[] = [];
+  for (const p of state.tournament.participants) {
+    const def = state.tournament.categoryDefs.find((d) => d.id === catId);
+    if (!def) continue;
+    // Inline the category match check rather than re-importing
+    // findCategoryForParticipant — the def list is small.
+    const matchesBelt = def.belts.length === 0 || def.belts.includes(p.beltColor);
+    const inAgeRange =
+      p.age >= def.minAge && (def.maxAge === null || p.age <= def.maxAge);
+    if (!matchesBelt || !inAgeRange) continue;
+    if (p.arrived === false) {
+      removedNames.push(`${p.nombre} ${p.apellido}`.trim());
+    } else {
+      eligibleIds.add(p.id);
+    }
+  }
+  // Filter cat.competitors (which currently holds the full seeded roster) to
+  // keep only arrived names. We use a Set of full names because that's the
+  // shape stored on the category.
+  const arrivedNames = new Set(
+    state.tournament.participants
+      .filter((p) => eligibleIds.has(p.id))
+      .map((p) => `${p.nombre} ${p.apellido}`.trim()),
+  );
+  cat.competitors = cat.competitors.filter((n) => arrivedNames.has(n));
+  cat.started = true;
+  // Now that we know the real roster, build the subcategories.
+  rebuildCategorySubcategories(cat, state.tournament.settings);
+  return removedNames;
+}
+
 
 // =============================================================
 // Mutations: scoreboard
