@@ -13,12 +13,13 @@ interface Props {
 export function AdminSidebar({ onOpenTournamentSettings }: Props) {
   const { state, setActiveCategory, setActiveSubcategory } = useStore();
   const { hasRole } = useAuth();
-  const { current: areaIdx, setArea } = useArea();
+  const { current: areaIdx } = useArea();
   const t = state.tournament;
   const isSuperadmin = hasRole("superadmin");
-  // Area filter applies to anyone who has picked an area. Superadmin can
-  // explicitly choose "all areas" (areaIdx === null) to see the union view.
-  const filterByArea = typeof areaIdx === "number";
+  // Superadmin always sees the union view — the per-subcategory area
+  // badge below already shows where each fight is running, so an
+  // extra filter is just noise. Referees still see only their area.
+  const filterByArea = !isSuperadmin && typeof areaIdx === "number";
 
   return (
     <aside className="admin-sidebar">
@@ -26,18 +27,12 @@ export function AdminSidebar({ onOpenTournamentSettings }: Props) {
         <button className="tourn-settings-btn" onClick={onOpenTournamentSettings}>
           ⚙ Tournament Settings
         </button>
-      ) : null}
-      <div className="area-chip">
-        <span className="muted-mono">VIEWING</span>
-        <span className="area-chip-label">
-          {filterByArea ? `Area ${areaIdx! + 1}` : "All areas"}
-        </span>
-        {isSuperadmin && filterByArea ? (
-          <button type="button" className="area-chip-link" onClick={() => setArea(null)}>
-            show all
-          </button>
-        ) : null}
-      </div>
+      ) : (
+        <div className="area-chip">
+          <span className="muted-mono">REFEREEING</span>
+          <span className="area-chip-label">Area {(areaIdx ?? 0) + 1}</span>
+        </div>
+      )}
       <h3>Categories</h3>
       <div>
         {t.categoryOrder.map((cid) => {
@@ -81,6 +76,7 @@ export function AdminSidebar({ onOpenTournamentSettings }: Props) {
                   {visibleSubs.map((sub) => {
                     const status = subcategoryStatus(sub);
                     const isActiveSub = sub.id === cat.activeSubcategoryId;
+                    const subArea = t.areaAssignments[sub.id];
                     return (
                       <button
                         key={sub.id}
@@ -94,6 +90,14 @@ export function AdminSidebar({ onOpenTournamentSettings }: Props) {
                             {sub.tag}
                           </span>
                         ) : null}
+                        {typeof subArea === "number" && (
+                          <span
+                            className={`area-tag area-tag-${(subArea % 6) + 1}`}
+                            title={`Assigned to Area ${subArea + 1}`}
+                          >
+                            A{subArea + 1}
+                          </span>
+                        )}
                         <PaceBadge state={state} subcategoryId={sub.id} />
                       </button>
                     );

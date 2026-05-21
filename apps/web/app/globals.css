@@ -127,6 +127,31 @@ button { font-family: inherit; }
   border-bottom: 1px solid var(--color-line);
 }
 .cat-group { margin-bottom: 8px; }
+.area-tag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-bg-2);
+  color: var(--color-fg);
+}
+/* A handful of pre-coded tints so each area gets its own colour without
+   the operator having to think. Cycles after 6 (matches our max area count). */
+.area-tag.area-tag-1 { color: #4D80FF; border-color: color-mix(in oklab, #4D80FF 45%, var(--color-line-strong)); background: color-mix(in oklab, #4D80FF 10%, var(--color-bg-2)); }
+.area-tag.area-tag-2 { color: #E63946; border-color: color-mix(in oklab, #E63946 45%, var(--color-line-strong)); background: color-mix(in oklab, #E63946 10%, var(--color-bg-2)); }
+.area-tag.area-tag-3 { color: #10B981; border-color: color-mix(in oklab, #10B981 45%, var(--color-line-strong)); background: color-mix(in oklab, #10B981 10%, var(--color-bg-2)); }
+.area-tag.area-tag-4 { color: #E6A23A; border-color: color-mix(in oklab, #E6A23A 45%, var(--color-line-strong)); background: color-mix(in oklab, #E6A23A 10%, var(--color-bg-2)); }
+.area-tag.area-tag-5 { color: #B07CFF; border-color: color-mix(in oklab, #B07CFF 45%, var(--color-line-strong)); background: color-mix(in oklab, #B07CFF 10%, var(--color-bg-2)); }
+.area-tag.area-tag-6 { color: #FF80B8; border-color: color-mix(in oklab, #FF80B8 45%, var(--color-line-strong)); background: color-mix(in oklab, #FF80B8 10%, var(--color-bg-2)); }
+
+/* When BOTH area-tag and pace-badge exist on the same row, the pace
+   badge should sit AFTER the area tag (auto-margin only on the tag). */
+.subcat-btn .area-tag + .pace-badge { margin-left: 6px; }
+
 .pace-badge {
   margin-left: auto;
   font-family: var(--font-mono);
