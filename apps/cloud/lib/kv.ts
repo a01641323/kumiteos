@@ -1,27 +1,57 @@
-// Lazy KV client. The `kv` proxy defers creation until the first
-// real call, so importing this file in environments without
-// KV_REST_API_URL / KV_REST_API_TOKEN (e.g. a fresh Vercel deploy
-// before the KV integration is connected) doesn't throw at module
-// load time — only when a route actually tries to read or write.
+// Lazy Upstash Redis client. Accepts either env-var convention
+// Vercel might expose:
+//   - REST shape:   KV_REST_API_URL + KV_REST_API_TOKEN  (Vercel KV legacy)
+//                   or UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
+//   - Protocol URL: REDIS_URL / KV_URL                   (Vercel Redis Marketplace)
+//
+// The protocol URL is parsed into the REST equivalent so a single
+// `@upstash/redis` client works regardless of which form is present.
 
-import { createClient, type VercelKV } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 
-let cached: VercelKV | null = null;
+let cached: Redis | null = null;
 
-function makeClient(): VercelKV {
-  const url = process.env.KV_REST_API_URL;
-  const token = process.env.KV_REST_API_TOKEN;
-  if (!url || !token) {
-    throw new Error(
-      "Vercel KV is not configured. Connect a KV database in the Vercel " +
-      "dashboard, or set KV_REST_API_URL + KV_REST_API_TOKEN.",
-    );
+function deriveRestFromRedisUrl(redisUrl: string): { url: string; token: string } | null {
+  try {
+    const parsed = new URL(redisUrl);
+    if (!parsed.hostname || !parsed.password) return null;
+    return {
+      url: `https://${parsed.hostname}`,
+      token: parsed.password,
+    };
+  } catch {
+    return null;
   }
-  cached = createClient({ url, token });
-  return cached;
 }
 
-export const kv: VercelKV = new Proxy({} as VercelKV, {
+function makeClient(): Redis {
+  const restUrl =
+    process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const restToken =
+    process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (restUrl && restToken) {
+    cached = new Redis({ url: restUrl, token: restToken });
+    return cached;
+  }
+
+  const protocolUrl = process.env.REDIS_URL ?? process.env.KV_URL;
+  if (protocolUrl) {
+    const derived = deriveRestFromRedisUrl(protocolUrl);
+    if (derived) {
+      cached = new Redis(derived);
+      return cached;
+    }
+  }
+
+  throw new Error(
+    "Redis is not configured. Provide either REDIS_URL, or " +
+      "KV_REST_API_URL + KV_REST_API_TOKEN, or " +
+      "UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN.",
+  );
+}
+
+export const kv: Redis = new Proxy({} as Redis, {
   get(_target, prop) {
     const client = cached ?? makeClient();
     return Reflect.get(client, prop, client);
