@@ -9,7 +9,7 @@ import { GuestWaitingScreen } from "./guest-waiting-screen";
 const REASON_COPY: Record<LicenseDegradedReason, { title: string; body: string }> = {
   EXPIRED: {
     title: "License expired",
-    body: "Your license has expired. Enter a new access code below or contact your administrator to renew.",
+    body: "Your license has expired. Enter a new access code below or request another at kumiteos.vercel.app/request.",
   },
   REVOKED: {
     title: "Access revoked",
@@ -94,8 +94,8 @@ export function LockScreen({ reason }: { reason: LicenseDegradedReason | string 
   }
 
   const info = REASON_COPY[reason as LicenseDegradedReason] ?? {
-    title: "Access restricted",
-    body: typeof reason === "string" ? reason : "Unknown reason.",
+    title: "Karate Tournament",
+    body: "Enter your 6-digit access code to activate this machine for 24 hours.",
   };
 
   async function handleRedeem(e: React.FormEvent) {
@@ -124,83 +124,146 @@ export function LockScreen({ reason }: { reason: LicenseDegradedReason | string 
       <div className="auth-card auth-locked">
         <h1>{info.title}</h1>
         <p>{info.body}</p>
-        <form onSubmit={handleRedeem} style={{ marginTop: 18 }}>
-          <p className="muted" style={{ fontSize: 13, marginBottom: 6 }}>
-            Have a new access code? Enter it here to reactivate.
-          </p>
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="000000"
-            maxLength={6}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            style={{
-              textAlign: "center",
-              letterSpacing: 8,
-              fontSize: 22,
-              width: "100%",
-              marginBottom: 10,
-              fontFamily: "ui-monospace, Menlo, monospace",
-            }}
-          />
-          {error && <p style={{ color: "var(--red, #e05252)", marginBottom: 8, fontSize: 13 }}>{error}</p>}
-          <button type="submit" className="primary" disabled={loading || code.length !== 6} style={{ width: "100%" }}>
-            {loading ? "Activating…" : "Reactivate"}
+
+        <form onSubmit={handleRedeem} style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="code-slots-wrap">
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              maxLength={6}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              className="code-slots-input"
+              aria-label="6-digit access code"
+            />
+            <div className="code-slots" aria-hidden>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`code-slot ${code[i] ? "filled" : ""} ${i === code.length ? "active" : ""}`}
+                >
+                  {code[i] ?? ""}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {error && <div className="auth-error">{error}</div>}
+
+          <button
+            type="submit"
+            className="primary"
+            disabled={loading || code.length !== 6}
+            style={{ width: "100%", padding: "14px 16px", fontSize: 15 }}
+          >
+            {loading ? "Activating…" : "Activate"}
           </button>
         </form>
 
         {isElectron && (
           <>
-            <div aria-hidden style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0 10px", color: "var(--muted, #8a93a6)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-              <div style={{ flex: 1, height: 1, background: "var(--border, #2a3142)" }} />
+            <div className="auth-divider">
+              <span className="auth-divider-line" />
               <span>or join a host</span>
-              <div style={{ flex: 1, height: 1, background: "var(--border, #2a3142)" }} />
+              <span className="auth-divider-line" />
             </div>
 
-            {joinError && <div className="auth-error" style={{ marginBottom: 10 }}>{joinError}</div>}
+            {joinError && <div className="auth-error">{joinError}</div>}
 
             {discovered.length > 0 ? (
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+              <ul className="host-list">
                 {discovered.map((s) => (
-                  <li key={s.serverId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", background: "var(--panel-2, #1d2230)", border: "1px solid var(--border, #2a3142)", borderRadius: 8 }}>
+                  <li key={s.serverId} className="host-row">
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{s.tournamentName || "Karate Host"}</div>
-                      <div className="muted small" style={{ fontFamily: "ui-monospace, Menlo, monospace" }}>{s.serverIp}:{s.serverPort}</div>
+                      <div className="host-name">{s.tournamentName || "Karate Host"}</div>
+                      <div className="host-addr">{s.serverIp}:{s.serverPort}</div>
                     </div>
-                    <button type="button" className="primary" onClick={() => startJoin({ serverId: s.serverId, ip: s.serverIp, port: s.serverPort, label: s.tournamentName || s.serverIp })}>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        startJoin({
+                          serverId: s.serverId,
+                          ip: s.serverIp,
+                          port: s.serverPort,
+                          label: s.tournamentName || s.serverIp,
+                        })
+                      }
+                    >
                       Connect
                     </button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="muted small" style={{ margin: 0 }}>Looking for hosts on your network…</p>
+              <p className="muted small" style={{ margin: 0 }}>
+                Looking for hosts on your network…
+              </p>
             )}
 
             <div style={{ marginTop: 14 }}>
               {!manualOpen ? (
-                <button type="button" onClick={() => { setManualOpen(true); setJoinError(null); }} style={{ background: "transparent", border: "none", color: "var(--accent, #4f8cff)", cursor: "pointer", padding: 0, fontSize: 13 }}>
+                <button
+                  type="button"
+                  className="host-link"
+                  onClick={() => { setManualOpen(true); setJoinError(null); }}
+                >
                   Enter IP manually
                 </button>
               ) : (
-                <form onSubmit={(e) => { e.preventDefault(); const ip = manualIp.trim(); const port = Number(manualPort) || 4747; if (!/^[0-9.]+$/.test(ip)) { setJoinError("Enter a valid IPv4 address."); return; } startJoin({ serverId: null, ip, port, label: `${ip}:${port}` }); }} style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const ip = manualIp.trim();
+                    const port = Number(manualPort) || 4747;
+                    if (!/^[0-9.]+$/.test(ip)) {
+                      setJoinError("Enter a valid IPv4 address.");
+                      return;
+                    }
+                    startJoin({ serverId: null, ip, port, label: `${ip}:${port}` });
+                  }}
+                  style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
+                >
                   <label style={{ flex: "2 1 160px" }}>
                     IP address
-                    <input autoFocus value={manualIp} onChange={(e) => setManualIp(e.target.value)} placeholder="192.168.1.10" inputMode="decimal" />
+                    <input
+                      autoFocus
+                      value={manualIp}
+                      onChange={(e) => setManualIp(e.target.value)}
+                      placeholder="192.168.1.10"
+                      inputMode="decimal"
+                    />
                   </label>
                   <label style={{ flex: "1 1 80px", maxWidth: 100 }}>
                     Port
-                    <input value={manualPort} onChange={(e) => setManualPort(e.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" />
+                    <input
+                      value={manualPort}
+                      onChange={(e) => setManualPort(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                      inputMode="numeric"
+                    />
                   </label>
                   <button type="submit" className="primary">Connect</button>
-                  <button type="button" onClick={() => { setManualOpen(false); setManualIp(""); }} style={{ background: "transparent", border: "none", color: "var(--muted, #8a93a6)", cursor: "pointer", padding: "8px 4px", fontSize: 13 }}>Cancel</button>
+                  <button
+                    type="button"
+                    className="host-link"
+                    onClick={() => { setManualOpen(false); setManualIp(""); }}
+                    style={{ padding: "8px 4px" }}
+                  >
+                    Cancel
+                  </button>
                 </form>
               )}
             </div>
 
-            <div style={{ marginTop: 18, borderTop: "1px solid var(--border, #2a3142)", paddingTop: 14 }}>
-              <button type="button" onClick={handleReset} disabled={resetting} style={{ background: "transparent", border: "none", color: "var(--muted, #8a93a6)", cursor: "pointer", padding: 0, fontSize: 12 }}>
+            <div className="host-reset-row">
+              <button
+                type="button"
+                className="host-reset"
+                onClick={handleReset}
+                disabled={resetting}
+              >
                 {resetting ? "Clearing…" : "Clear stored license and start over"}
               </button>
             </div>
