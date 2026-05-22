@@ -40,8 +40,13 @@ export const kv = {
     try { return JSON.parse(raw) as T; }
     catch { return raw as unknown as T; }
   },
-  async set(key: string, value: unknown): Promise<void> {
-    await client().set(key, JSON.stringify(value));
+  async set(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
+    const raw = JSON.stringify(value);
+    if (typeof ttlSeconds === "number" && ttlSeconds > 0) {
+      await client().set(key, raw, "EX", ttlSeconds);
+    } else {
+      await client().set(key, raw);
+    }
   },
   async del(key: string): Promise<number> {
     return client().del(key);

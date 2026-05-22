@@ -1,0 +1,114 @@
+# Tag-triggered release build. Push a tag matching v* and this fans out
+# to four runners, each producing one kumiteos-<target> tarball:
+#
+#   v1.0.3 → kumiteos-darwin-arm64.tar.gz
+#            kumiteos-darwin-x64.tar.gz
+#            kumiteos-linux-x64.tar.gz
+#            kumiteos-win-x64.zip
+#
+# All four assets land on the matching GitHub Release. The cloud's
+# /api/downloads/[os] endpoint reads the latest release and 302s to
+# the right asset.
+#
+# Each tarball contains:
+#   kumiteos[.exe]   ← bun-compiled binary
+#   web/             ← apps/web/out (Next.js static export)
+#   version.json     ← stamped by build-bundle.ts
+#
+# The binary's defaultStaticDir() prefers ./web next to the binary so
+# this layout works without env vars.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: bun-darwin-arm64
+            asset: kumiteos-darwin-arm64
+            ext: tar.gz
+          - os: macos-13
+            target: bun-darwin-x64
+            asset: kumiteos-darwin-x64
+            ext: tar.gz
+          - os: ubuntu-22.04
+            target: bun-linux-x64
+            asset: kumiteos-linux-x64
+            ext: tar.gz
+          - os: windows-latest
+            target: bun-windows-x64
+            asset: kumiteos-win-x64
+            ext: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: build core + web
+        run: |
+          pnpm --filter @karate/core build || true
+          pnpm --filter @karate/web build
+
+      - name: stage embedded assets
+        working-directory: apps/local
+        run: pnpm tsx build-bundle.ts --target=${{ matrix.target }}
+
+      - name: compile binary
+        working-directory: apps/local
+        run: |
+          mkdir -p dist-bin/${{ matrix.asset }}
+          bun build --compile --target=${{ matrix.target }} --outfile=dist-bin/${{ matrix.asset }}/kumiteos src/standalone.ts
+
+      - name: stage release layout
+        working-directory: apps/local
+        shell: bash
+        run: |
+          OUT=dist-bin/${{ matrix.asset }}
+          cp -R embedded/web "$OUT/web"
+          cp embedded/version.json "$OUT/version.json"
+          ls -lah "$OUT"
+
+      - name: pack (unix)
+        if: matrix.ext == 'tar.gz'
+        working-directory: apps/local/dist-bin
+        run: tar -czf ${{ matrix.asset }}.tar.gz ${{ matrix.asset }}
+
+      - name: pack (windows)
+        if: matrix.ext == 'zip'
+        working-directory: apps/local/dist-bin
+        shell: pwsh
+        run: Compress-Archive -Path ${{ matrix.asset }} -DestinationPath ${{ matrix.asset }}.zip
+
+      - name: upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apps/local/dist-bin/${{ matrix.asset }}.${{ matrix.ext }}
+          fail_on_unmatched_files: true
