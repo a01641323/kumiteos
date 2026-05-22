@@ -14,6 +14,48 @@ export class ActionRejectedError extends Error {
 type AnyState = any;
 type Handler = (s: AnyState, payload: any) => AnyState | void;
 
+// Per-area scoreboard slot. Lazily initialized from the legacy global
+// state.match / state.timer so existing snapshots keep working. Each
+// console (area) gets its own scoreboard.
+function getAreaSlot(s: AnyState, areaIdx: number): { match: any; timer: any } {
+  if (!s.matchesByArea) s.matchesByArea = {};
+  if (!s.timersByArea) s.timersByArea = {};
+  if (!s.matchesByArea[areaIdx]) {
+    s.matchesByArea[areaIdx] = JSON.parse(JSON.stringify(s.match));
+  }
+  if (!s.timersByArea[areaIdx]) {
+    s.timersByArea[areaIdx] = JSON.parse(JSON.stringify(s.timer));
+  }
+  return { match: s.matchesByArea[areaIdx], timer: s.timersByArea[areaIdx] };
+}
+
+// Run a handler body with s.match / s.timer redirected to the area's
+// own slot. After the body runs, the slot is updated and (for area 0)
+// the legacy state.match / state.timer are mirrored.
+function withArea(s: AnyState, areaIdx: number, fn: () => void): void {
+  const idx = typeof areaIdx === "number" && areaIdx >= 0 ? areaIdx : 0;
+  const slot = getAreaSlot(s, idx);
+  const savedMatch = s.match;
+  const savedTimer = s.timer;
+  s.match = slot.match;
+  s.timer = slot.timer;
+  try { fn(); } finally {
+    s.matchesByArea[idx] = s.match;
+    s.timersByArea[idx] = s.timer;
+    // Restore the legacy top-level pointers. Area 0 mirrors back so
+    // any reader (engine ticks, /public scoreboard fallback, persisted
+    // snapshot) still sees something sensible.
+    if (idx === 0) {
+      // legacy pointers stay in sync with area 0
+      s.match = s.matchesByArea[0];
+      s.timer = s.timersByArea[0];
+    } else {
+      s.match = savedMatch;
+      s.timer = savedTimer;
+    }
+  }
+}
+
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
@@ -392,9 +434,34 @@ const handlers: Record<string, Handler> = {
   },
 };
 
+// Action types that touch the live scoreboard (state.match) or timer
+// and therefore must run inside the per-area slot wrapper.
+const SCOREBOARD_ACTIONS = new Set([
+  "SCORE_POINT",
+  "ADD_PENALTY",
+  "SET_ADVANTAGE",
+  "TIMER_TOGGLE",
+  "TIMER_ADJUST",
+  "RESET_SCOREBOARD",
+  "LOAD_EXTRA_MATCH",
+  "SELECT_MATCH",
+  "ADVANCE_WINNER",
+  "SET_KATA_SCORE",
+  "ELIMINATE",
+]);
+
 export function applyAction(state: AnyState, action: any): AnyState | null {
   const fn = handlers[action.actionType];
   if (!fn) throw new ActionRejectedError("invalid", `unknown action ${action.actionType}`);
-  const result = fn(state, action.payload || {});
+  const payload = action.payload || {};
+  let result: AnyState | void;
+  if (SCOREBOARD_ACTIONS.has(action.actionType)) {
+    // Route to the per-area scoreboard slot — keeps each console
+    // independent so two areas can score concurrently.
+    const areaIdx = typeof payload.areaIdx === "number" ? payload.areaIdx : 0;
+    withArea(state, areaIdx, () => { result = fn(state, payload); });
+  } else {
+    result = fn(state, payload);
+  }
   return result === undefined ? null : result;
 }

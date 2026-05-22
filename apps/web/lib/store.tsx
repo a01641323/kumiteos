@@ -426,18 +426,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [mode, networkState]);
 
   // ---- Effective state used by all consumers ----
-  // Per Addition 2: in networked modes, the "which match is loaded on this
-  // machine" is local state, not server state. Override `state.match` from
-  // the bracket lookup of the local ref so each machine sees its own match.
+  // Each console (area) has its own live scoreboard slot at
+  // state.matchesByArea[areaIdx] / state.timersByArea[areaIdx]. Overlay
+  // those onto state.match / state.timer so every UI consumer that
+  // reads state.match.* sees this area's match instead of the global
+  // (area-0) one. The server's reducer routes scoring actions to the
+  // same per-area slot using payload.areaIdx.
   const baseState = mode === "standalone" ? localState : (networkState ?? buildInitialState());
-  // The earlier "per-machine independent scoreboard" projection
-  // (applyLocalActiveMatch) zeroed bluePoints/redPoints whenever the
-  // renderer's local ref disagreed with the server's by even one tick,
-  // which created a window where SCORE_POINT looked silent because the
-  // displayed scoring stayed at zero. Single-machine operation never
-  // benefited from that projection — the server is the single source of
-  // truth for the live match. Drop it; trust state.match as-is.
-  const stateWithLocalMatch = baseState;
+  const stateWithLocalMatch = (() => {
+    const idx = typeof currentAreaIdx === "number" ? currentAreaIdx : 0;
+    const m = (baseState as any).matchesByArea?.[idx];
+    const t = (baseState as any).timersByArea?.[idx];
+    if (!m && !t) return baseState;
+    return {
+      ...baseState,
+      match: m ?? baseState.match,
+      timer: t ?? baseState.timer,
+    } as AppState;
+  })();
   const state = mergeOptimistic(stateWithLocalMatch, optimistic);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -471,7 +477,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       });
       return;
     }
-    const env = Actions.scorePoint(side, n);
+    const env = Actions.scorePoint(side, n, currentAreaIdx);
     // Optimistic overlay only on CLIENT; SERVER mode's IPC roundtrip is fast
     // enough that the overlay isn't needed (and would clutter the canonical
     // state shown to other clients via BC).
@@ -537,7 +543,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // once applyLocalActiveMatch was dropped, leaving bracket clicks
         // with no visible effect. Send SELECT_MATCH so every machine sees
         // the chosen match.
-        sendNamed(Actions.selectMatch(ref));
+        sendNamed(Actions.selectMatch(ref, currentAreaIdx));
         if (localActiveMatchRef) setLocalActiveMatchRef(null);
       },
       advanceActiveMatch: () => {
@@ -730,7 +736,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           updateLocal((s) => resetLiveScoreboard(s));
         } else {
           if (!actionable) return;
-          sendNamed(Actions.resetScoreboard());
+          sendNamed(Actions.resetScoreboard(currentAreaIdx));
         }
       },
       eliminate: (side) => {
@@ -767,7 +773,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           if (!actionable) return;
-          sendNamed(Actions.eliminate(side, localActiveMatchRef ?? stateRef.current.match.activeMatchRef ?? undefined));
+          sendNamed(Actions.eliminate(side, localActiveMatchRef ?? stateRef.current.match.activeMatchRef ?? undefined, currentAreaIdx));
           if (localActiveMatchRef) setLocalActiveMatchRef(null);
         }
       },
@@ -787,7 +793,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             s.timer.finished = false;
           });
         } else {
-          sendNamed(Actions.loadExtraMatch(discipline));
+          sendNamed(Actions.loadExtraMatch(discipline, currentAreaIdx));
         }
       },
       setKataScore: (side, value) => {
@@ -816,7 +822,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             // Hold on this match — operator presses Enter/Advance to roll on.
           });
         } else {
-          sendNamed(Actions.setKataScore(side, value));
+          sendNamed(Actions.setKataScore(side, value, currentAreaIdx));
         }
       },
       setAdvantage: (side, value) => {
@@ -827,7 +833,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           if (!actionable) return;
-          sendNamed(Actions.setAdvantage(side, value));
+          sendNamed(Actions.setAdvantage(side, value, currentAreaIdx));
         }
       },
       addPenalty: (side, delta) => {
@@ -839,7 +845,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           if (!actionable) return;
-          sendNamed(Actions.addPenalty(side, delta));
+          sendNamed(Actions.addPenalty(side, delta, currentAreaIdx));
         }
       },
       adjustTimer: (delta) => {
@@ -850,7 +856,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           if (!actionable) return;
-          sendNamed(Actions.timerAdjust(delta));
+          sendNamed(Actions.timerAdjust(delta, currentAreaIdx));
         }
       },
       togglePause: () => {
@@ -862,7 +868,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           if (!actionable) return;
-          sendNamed(Actions.timerToggle());
+          sendNamed(Actions.timerToggle(currentAreaIdx));
         }
       },
       saveAppSettings: (duration, keys) => {
