@@ -56,16 +56,33 @@ function diffAndEmitEngineEvents(prevMap: Map<string, any>, state: AnyState, now
       try { (core as any).recordMatchEnd(state, id, now); } catch {}
     }
   }
-  const ref = state.match && state.match.activeMatchRef;
-  if (ref) {
+  // Mark every per-area active match as IN_PROGRESS so the engine
+  // excludes it from listReadyMatches when picking the next match.
+  // Without this, the next-match panel may stay empty (or, worse,
+  // recommend the SAME match that's already being scored) because the
+  // engine only ever looked at the legacy state.match slot.
+  const refsByArea: Array<{ ref: any; areaIdx: number }> = [];
+  const matchesByArea = state.matchesByArea ?? {};
+  for (const k of Object.keys(matchesByArea)) {
+    const idx = Number(k);
+    const ref = matchesByArea[idx]?.activeMatchRef;
+    if (ref) refsByArea.push({ ref, areaIdx: idx });
+  }
+  // Legacy fallback for single-console / standalone snapshots that
+  // haven't populated matchesByArea yet.
+  if (refsByArea.length === 0 && state.match?.activeMatchRef) {
+    const ref = state.match.activeMatchRef;
+    const inferred = state.tournament.areaAssignments?.[ref.subcategoryId];
+    refsByArea.push({ ref, areaIdx: typeof inferred === "number" ? inferred : 0 });
+  }
+  const eng = state.engine;
+  for (const { ref, areaIdx } of refsByArea) {
+    if (!eng) break;
     const id = (core as any).matchIdFromRef(ref);
-    const eng = state.engine;
-    if (eng && eng.matches[id] && eng.matches[id].status !== "IN_PROGRESS" && eng.matches[id].status !== "COMPLETED") {
-      const areaIndex = state.tournament.areaAssignments?.[ref.subcategoryId];
-      if (typeof areaIndex === "number") {
-        try { (core as any).recordMatchStart(state, id, areaIndex, now); } catch {}
-      }
-    }
+    const m = eng.matches[id];
+    if (!m) continue;
+    if (m.status === "IN_PROGRESS" || m.status === "COMPLETED") continue;
+    try { (core as any).recordMatchStart(state, id, areaIdx, now); } catch {}
   }
   return nextMap;
 }
