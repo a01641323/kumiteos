@@ -13,9 +13,12 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 
-const HERE = path.dirname(new URL(import.meta.url).pathname);
+// Use fileURLToPath, NOT `new URL().pathname` — the latter returns
+// "/C:/foo" on Windows, which path.resolve then mangles into "C:\C:\foo".
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WEB_OUT = path.resolve(HERE, "..", "web", "out");
 const EMBED_ROOT = path.join(HERE, "embedded");
 const EMBED_WEB = path.join(EMBED_ROOT, "web");
