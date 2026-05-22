@@ -1,6 +1,8 @@
 node_modules
 .next
 dist
+dist-bin
+embedded
 out
 data
 apps/server/data

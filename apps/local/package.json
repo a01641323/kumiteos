@@ -9,7 +9,9 @@
     "build": "tsc -p tsconfig.json",
     "start": "tsx src/standalone.ts",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist .turbo node_modules"
+    "bundle": "tsx build-bundle.ts",
+    "build:bin": "pnpm --filter @karate/web build && tsx build-bundle.ts --target=$TARGET && bun build --compile --target=$TARGET --outfile=dist-bin/kumiteos src/standalone.ts",
+    "clean": "rm -rf dist dist-bin embedded .turbo node_modules"
   },
   "dependencies": {
     "@karate/core": "workspace:*",

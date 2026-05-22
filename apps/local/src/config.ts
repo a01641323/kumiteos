@@ -20,15 +20,40 @@ export interface ServerConfig {
 
 export function defaultDataDir(): string {
   if (process.env.KARATE_DATA_DIR) return process.env.KARATE_DATA_DIR;
-  // In the web build the server lives next to a ./data/ directory on
-  // its own working tree. Fall back to the home directory if cwd isn't
-  // writable (e.g. running from a read-only install).
-  return path.resolve(process.cwd(), "data");
+  // When running as a distributed binary, persist under ~/.kumiteos/data
+  // so re-installs / upgrades don't wipe state. Detect "distributed"
+  // mode by absence of a sibling package.json (dev tree has one).
+  const devData = path.resolve(process.cwd(), "data");
+  const devPkg = path.resolve(process.cwd(), "package.json");
+  try {
+    require("fs").accessSync(devPkg);
+    return devData;
+  } catch {
+    return path.join(os.homedir(), ".kumiteos", "data");
+  }
 }
 
 export function defaultStaticDir(): string {
-  // apps/local/dist/standalone.js → ../../web/out
-  return path.resolve(__dirname, "..", "..", "web", "out");
+  if (process.env.KARATE_STATIC_DIR) return process.env.KARATE_STATIC_DIR;
+  // Resolution order, first existing wins:
+  //   1. <execPath>/web/                — packaged binary layout (tarball)
+  //   2. <__dirname>/../embedded/web/   — bun-compile or staged build
+  //   3. <__dirname>/../../web/out/     — dev tree (apps/local/dist → apps/web/out)
+  //   4. <cwd>/apps/web/out/            — monorepo root invocation
+  const fs = require("fs") as typeof import("fs");
+  const execDir = path.dirname(process.execPath);
+  const candidates = [
+    path.join(execDir, "web"),
+    path.resolve(__dirname, "..", "embedded", "web"),
+    path.resolve(__dirname, "..", "..", "web", "out"),
+    path.resolve(process.cwd(), "apps", "web", "out"),
+  ];
+  for (const c of candidates) {
+    try { if (fs.existsSync(c)) return c; } catch { /* ignore */ }
+  }
+  // Return the dev path even if missing — the caller logs that web UI
+  // is unavailable rather than crashing.
+  return candidates[2]!;
 }
 
 const FULL_SUPERADMIN: Feature[] = [
