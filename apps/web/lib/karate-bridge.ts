@@ -92,11 +92,23 @@ interface BridgeState {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
 }
 
+// Mode is decided LOCALLY based on the browser's hostname, not by what
+// the server pushes over SSE. Same kumiteos binary serves both host
+// (localhost) and LAN guests, so the server-side status always says
+// `mode: "server"` — trusting that for every client made the
+// approval modal render on guest machines and prevented guest auth
+// status from transitioning out of "anonymous".
+function localMode(): "server" | "client" {
+  if (typeof window === "undefined") return "client";
+  const h = window.location.hostname;
+  return (h === "localhost" || h === "127.0.0.1") ? "server" : "client";
+}
+
 const state: BridgeState = {
   ws: null,
   sse: null,
   status: {
-    mode: "client",
+    mode: localMode(),
     connected: false,
     welcomed: false,
     serverInfo: null,
@@ -118,7 +130,9 @@ const rivalFan = fanout<DiscoveredServer>();
 const licenseChangeFan = fanout<{ state: unknown; token: string | null }>();
 
 function pushStatus(patch: Partial<NetworkStatusSnapshot>) {
-  state.status = { ...state.status, ...patch };
+  // Always override `mode` with the local computation — the server's
+  // own `mode: "server"` is irrelevant to the client looking at it.
+  state.status = { ...state.status, ...patch, mode: localMode() };
   statusFan.emit(state.status);
 }
 
