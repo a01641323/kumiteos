@@ -35,18 +35,31 @@ export function defaultDataDir(): string {
 
 export function defaultStaticDir(): string {
   if (process.env.KARATE_STATIC_DIR) return process.env.KARATE_STATIC_DIR;
-  // Resolution order, first existing wins:
+  const fs = require("fs") as typeof import("fs");
+  const execDir = path.dirname(process.execPath);
+
+  // Dev mode: prefer apps/web/out so `pnpm dev:fresh` always serves
+  // the freshly-built static export, never a stale embedded copy.
+  // This is the single biggest reason the LAN-bar release loop went
+  // off the rails — dev was silently serving an older bundle.
+  const devTreeOut = path.resolve(__dirname, "..", "..", "web", "out");
+  const cwdOut = path.resolve(process.cwd(), "apps", "web", "out");
+  if (process.env.KARATE_DEV === "1") {
+    for (const c of [devTreeOut, cwdOut]) {
+      try { if (fs.existsSync(c)) return c; } catch { /* ignore */ }
+    }
+  }
+
+  // Production resolution order, first existing wins:
   //   1. <execPath>/web/                — packaged binary layout (tarball)
   //   2. <__dirname>/../embedded/web/   — bun-compile or staged build
   //   3. <__dirname>/../../web/out/     — dev tree (apps/local/dist → apps/web/out)
   //   4. <cwd>/apps/web/out/            — monorepo root invocation
-  const fs = require("fs") as typeof import("fs");
-  const execDir = path.dirname(process.execPath);
   const candidates = [
     path.join(execDir, "web"),
     path.resolve(__dirname, "..", "embedded", "web"),
-    path.resolve(__dirname, "..", "..", "web", "out"),
-    path.resolve(process.cwd(), "apps", "web", "out"),
+    devTreeOut,
+    cwdOut,
   ];
   for (const c of candidates) {
     try { if (fs.existsSync(c)) return c; } catch { /* ignore */ }
