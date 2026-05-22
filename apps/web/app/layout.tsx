@@ -13,6 +13,7 @@ import { SuperadminOverlay } from "@/components/superadmin-overlay";
 import { ConnectionRequestModal } from "@/components/connection-request-modal";
 import { ConnectionScreen } from "@/components/connection-screen";
 import { BridgeBootstrap } from "@/components/bridge-bootstrap";
+import { LanShareBar } from "@/components/lan-share-bar";
 
 export const metadata: Metadata = {
   title: "Karate Tournament Scoring",
@@ -36,6 +37,7 @@ export default function RootLayout({
                   <OverlayProvider>
                     <BodyClassSync />
                     <TopTabs />
+                    <LanShareBar />
                     {children}
                     <JuryModal />
                     <SuperadminOverlay />

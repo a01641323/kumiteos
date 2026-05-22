@@ -10,7 +10,6 @@ import { AdminSidebar } from "@/components/sidebar";
 import { BracketRenderer } from "@/components/bracket";
 import { TournamentSettingsModal } from "@/components/tournament-settings-modal";
 import { NextMatchPanel } from "@/components/next-match-panel";
-import { LanShareBar } from "@/components/lan-share-bar";
 
 export default function AdminPage() {
   const { state, setActiveDiscipline } = useStore();
@@ -53,7 +52,6 @@ export default function AdminPage() {
 
   return (
     <section id="view-admin">
-      <LanShareBar />
       <NextMatchPanel />
       <AdminSidebar onOpenTournamentSettings={() => setTournModalOpen(true)} />
       <div className="admin-main">
