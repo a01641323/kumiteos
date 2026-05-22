@@ -217,18 +217,83 @@ button { font-family: inherit; }
   color: var(--color-fg);
 }
 
-/* ===== download grid ===== */
-.download-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.store-card { display: flex; flex-direction: column; gap: 24px; }
-.store-top {
-  display: flex; justify-content: space-between;
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
-  color: var(--color-fg-2);
+/* ===== install grid ===== */
+.install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.install-card { display: flex; flex-direction: column; gap: 20px; }
+.install-head { display: flex; align-items: center; gap: 16px; }
+.install-glyphs { display: flex; align-items: center; gap: 8px; opacity: 0.9; }
+.install-title { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.install-sub {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+  color: var(--color-fg-2); margin-top: 4px;
 }
-.store-os { color: var(--color-fg); }
-.store-mid { display: flex; align-items: center; gap: 16px; flex: 1; padding: 16px 0; }
-.store-title { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
-.store-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--color-fg-2); margin-top: 4px; }
+
+/* ===== copyable command block ===== */
+.cmd-block {
+  border: 1px solid color-mix(in oklab, var(--color-fg) 14%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-fg) 4%, transparent);
+  overflow: hidden;
+}
+.cmd-block-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-fg) 10%, transparent);
+  background: color-mix(in oklab, var(--color-fg) 6%, transparent);
+}
+.cmd-block-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--color-fg-2);
+}
+.cmd-block-copy {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em;
+  padding: 4px 10px; border-radius: 4px;
+  background: transparent; color: var(--color-fg-2); cursor: pointer;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 16%, transparent);
+  transition: all 0.12s;
+}
+.cmd-block-copy:hover { color: var(--color-fg); border-color: var(--color-accent); }
+.cmd-block-body {
+  margin: 0; padding: 14px 14px;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.5;
+  color: var(--color-fg); overflow-x: auto;
+  background: transparent;
+}
+.cmd-block-body code { color: inherit; background: transparent; padding: 0; }
+
+/* ===== inline code utility ===== */
+.inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--color-fg) 8%, transparent);
+}
+.muted-link { color: var(--color-accent); text-decoration: underline; }
+
+/* ===== 3-step flow ===== */
+.flow-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 18px; }
+.flow-steps > li { display: flex; gap: 14px; align-items: flex-start; }
+.flow-num {
+  flex: none;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+  font-family: var(--font-mono); font-weight: 700; font-size: 13px;
+  border: 1px solid color-mix(in oklab, var(--color-accent) 40%, transparent);
+}
+.flow-title { font-weight: 600; font-size: 15px; color: var(--color-fg); }
+.flow-sub { font-size: 13px; line-height: 1.55; color: var(--color-fg-2); margin-top: 4px; }
+
+/* ===== first-launch caveats ===== */
+.first-launch {
+  list-style: none; padding: 0; margin: 0;
+  display: grid; gap: 12px;
+  color: var(--color-fg-2); font-size: 14px; line-height: 1.6;
+}
+.first-launch strong { color: var(--color-fg); font-weight: 600; }
 
 /* ===== steps ===== */
 .steps {
@@ -282,7 +347,7 @@ button { font-family: inherit; }
   .topnav { display: none; }
   .topbar-inner { grid-template-columns: auto 1fr; }
   .access-grid { grid-template-columns: 1fr; }
-  .download-grid { grid-template-columns: 1fr; }
+  .install-grid { grid-template-columns: 1fr; }
   .about-grid { grid-template-columns: 1fr; gap: 32px; }
   .steps { grid-template-columns: 1fr 1fr; }
   .step:nth-child(2n) { border-right: none; }
