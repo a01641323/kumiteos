@@ -53,9 +53,6 @@ export function LockScreen({ reason }: { reason: LicenseDegradedReason | string 
 
   const isElectron = typeof window !== "undefined" && !!window.__KARATE__?.network;
   const [discovered, setDiscovered] = useState<DiscoveredServer[]>([]);
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manualIp, setManualIp] = useState("");
-  const [manualPort, setManualPort] = useState("4747");
   const [joining, setJoining] = useState<JoinTarget | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
 
@@ -203,59 +200,6 @@ export function LockScreen({ reason }: { reason: LicenseDegradedReason | string 
               </p>
             )}
 
-            <div style={{ marginTop: 14 }}>
-              {!manualOpen ? (
-                <button
-                  type="button"
-                  className="host-link"
-                  onClick={() => { setManualOpen(true); setJoinError(null); }}
-                >
-                  Enter IP manually
-                </button>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const ip = manualIp.trim();
-                    const port = Number(manualPort) || 4747;
-                    if (!/^[0-9.]+$/.test(ip)) {
-                      setJoinError("Enter a valid IPv4 address.");
-                      return;
-                    }
-                    startJoin({ serverId: null, ip, port, label: `${ip}:${port}` });
-                  }}
-                  style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
-                >
-                  <label style={{ flex: "2 1 160px" }}>
-                    IP address
-                    <input
-                      autoFocus
-                      value={manualIp}
-                      onChange={(e) => setManualIp(e.target.value)}
-                      placeholder="192.168.1.10"
-                      inputMode="decimal"
-                    />
-                  </label>
-                  <label style={{ flex: "1 1 80px", maxWidth: 100 }}>
-                    Port
-                    <input
-                      value={manualPort}
-                      onChange={(e) => setManualPort(e.target.value.replace(/\D/g, "").slice(0, 5))}
-                      inputMode="numeric"
-                    />
-                  </label>
-                  <button type="submit" className="primary">Connect</button>
-                  <button
-                    type="button"
-                    className="host-link"
-                    onClick={() => { setManualOpen(false); setManualIp(""); }}
-                    style={{ padding: "8px 4px" }}
-                  >
-                    Cancel
-                  </button>
-                </form>
-              )}
-            </div>
 
             <div className="host-reset-row">
               <button
