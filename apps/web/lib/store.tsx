@@ -49,6 +49,7 @@ import {
 } from "@karate/core";
 import type { Participant } from "@karate/core";
 import { isActionable, useNetwork } from "./network-context";
+import { useArea } from "./area-context";
 import { useLocalState } from "./local-state-context";
 import * as Actions from "./store-actions";
 import {
@@ -117,6 +118,10 @@ interface StoreApi {
   /** Kata-only: set the selected side's score (0–5). Opponent gets 5−value;
    *  the higher score wins immediately. */
   setKataScore: (side: "blue" | "red", value: number) => void;
+  /** Training/sparring: load a blank scoreboard with no bracket linkage.
+   *  Discards current match progress; the result does NOT affect the
+   *  tournament. */
+  loadExtraMatch: (discipline: "combat" | "kata") => void;
   setAdvantage: (side: "blue" | "red", value: boolean) => void;
   addPenalty: (side: "blue" | "red", delta: number) => void;
   adjustTimer: (deltaSeconds: number) => void;
@@ -237,6 +242,7 @@ function sendAction(env: ReturnType<typeof Actions.scorePoint>): Promise<{ ok: b
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { status, networkState, networkStateVersion } = useNetwork();
   const { localActiveMatchRef, setLocalActiveMatchRef } = useLocalState();
+  const { current: currentAreaIdx } = useArea();
   const mode = status.mode;
   const actionable = isActionable(status);
 
@@ -548,7 +554,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (!actionable) return;
           // Pass local ref so the server finalizes the correct match
           // even when match selection is held only on this machine.
-          sendNamed(Actions.advanceWinner(localActiveMatchRef ?? stateRef.current.match.activeMatchRef ?? undefined));
+          sendNamed(Actions.advanceWinner(
+            localActiveMatchRef ?? stateRef.current.match.activeMatchRef ?? undefined,
+            currentAreaIdx,
+          ));
           // Clear local selection — bracket has advanced, the operator will
           // pick the next match.
           if (localActiveMatchRef) setLocalActiveMatchRef(null);
@@ -732,6 +741,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       },
       addPoints: (side, n) => dispatchScore(side, n),
+      loadExtraMatch: (discipline) => {
+        if (!actionable && mode !== "standalone") return;
+        if (mode === "standalone") {
+          updateLocal((s) => {
+            resetLiveScoreboard(s);
+            s.match.blueName = "Atleta A";
+            s.match.redName  = "Atleta B";
+            s.match.discipline = discipline;
+            s.match.activeMatchRef = null;
+            s.timer.duration  = s.settings.defaultDuration;
+            s.timer.remaining = s.settings.defaultDuration;
+            s.timer.running = false;
+            s.timer.finished = false;
+          });
+        } else {
+          sendNamed(Actions.loadExtraMatch(discipline));
+        }
+      },
       setKataScore: (side, value) => {
         if (!actionable && mode !== "standalone") return;
         if (mode === "standalone") {
@@ -820,7 +847,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         });
       },
     }),
-    [state, update, updateLocal, mode, actionable, networkState, localActiveMatchRef, setLocalActiveMatchRef]
+    [state, update, updateLocal, mode, actionable, networkState, localActiveMatchRef, setLocalActiveMatchRef, currentAreaIdx]
   );
 
   return (

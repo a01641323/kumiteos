@@ -34,11 +34,17 @@ export function resetScoreboard(): NetworkActionEnvelope {
 export function selectMatch(ref: ActiveMatchRef): NetworkActionEnvelope {
   return { actionId: id(), actionType: "SELECT_MATCH", payload: { ref }, ts: Date.now() };
 }
-export function advanceWinner(ref?: ActiveMatchRef): NetworkActionEnvelope {
-  // ref is included so machines with local-only match selection can drive
-  // bracket advancement on the correct match without first broadcasting a
-  // SELECT_MATCH (which would clobber other machines' loaded matches).
-  return { actionId: id(), actionType: "ADVANCE_WINNER", payload: { ref }, ts: Date.now() };
+export function advanceWinner(ref?: ActiveMatchRef, areaIdx?: number | null): NetworkActionEnvelope {
+  // ref tells the engine WHICH bracket match was just decided.
+  // areaIdx (optional) tells it WHERE to look for the next match —
+  // engine.nextMatchPerArea[areaIdx] — so the operator's scoreboard
+  // lands on the same match the NextMatchPanel was showing.
+  return {
+    actionId: id(),
+    actionType: "ADVANCE_WINNER",
+    payload: { ref, areaIdx: typeof areaIdx === "number" ? areaIdx : null },
+    ts: Date.now(),
+  };
 }
 export function eliminate(side: "blue" | "red", ref?: ActiveMatchRef): NetworkActionEnvelope {
   return { actionId: id(), actionType: "ELIMINATE", payload: { side, ref }, ts: Date.now() };
@@ -60,6 +66,9 @@ export function markArrived(participantId: string, arrived: boolean): NetworkAct
 }
 export function setKataScore(side: "blue" | "red", value: number): NetworkActionEnvelope {
   return { actionId: id(), actionType: "SET_KATA_SCORE", payload: { side, value }, ts: Date.now() };
+}
+export function loadExtraMatch(discipline: "combat" | "kata"): NetworkActionEnvelope {
+  return { actionId: id(), actionType: "LOAD_EXTRA_MATCH", payload: { discipline }, ts: Date.now() };
 }
 export function startCategory(catId: string): NetworkActionEnvelope {
   return { actionId: id(), actionType: "START_CATEGORY", payload: { catId }, ts: Date.now() };

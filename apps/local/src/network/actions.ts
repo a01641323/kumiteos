@@ -91,6 +91,26 @@ const handlers: Record<string, Handler> = {
   RESET_SCOREBOARD(s) {
     (core as any).resetLiveScoreboard(s);
   },
+  LOAD_EXTRA_MATCH(s, { discipline }) {
+    // Training / sparring mode: load a blank match with no bracket
+    // linkage. The current match's progress is discarded; the operator
+    // gets a clean scoreboard they can score on without affecting the
+    // tournament. Names default to placeholders so the UI doesn't
+    // look empty.
+    if (discipline !== "combat" && discipline !== "kata") {
+      throw new ActionRejectedError("invalid", "bad discipline");
+    }
+    (core as any).resetLiveScoreboard(s);
+    s.match.blueName = "Atleta A";
+    s.match.redName  = "Atleta B";
+    s.match.discipline = discipline;
+    s.match.activeMatchRef = null; // no bracket linkage
+    // Set the timer to the default so combat mode has something to run.
+    s.timer.duration = s.settings.defaultDuration;
+    s.timer.remaining = s.settings.defaultDuration;
+    s.timer.running = false;
+    s.timer.finished = false;
+  },
   SELECT_MATCH(s, { ref }) {
     if (!ref) throw new ActionRejectedError("invalid", "missing ref");
     const cat = s.tournament.categories[ref.categoryId];
@@ -99,6 +119,39 @@ const handlers: Record<string, Handler> = {
         "category_not_started",
         "Category has not been started yet. Confirm arrivals from the Check-in tab first.",
       );
+    }
+    // Lock-when-playing: refuse to load a different match if there's an
+    // in-progress one on the scoreboard (scoring activity AND no winner
+    // declared yet AND timer not finished). Re-selecting the SAME match
+    // is allowed (idempotent re-load).
+    const active = s.match.activeMatchRef;
+    if (active) {
+      const sameMatch = (core as any).matchIdFromRef(active) === (core as any).matchIdFromRef(ref);
+      if (!sameMatch) {
+        const activeMatch = (core as any).getMatchByRef(s, active);
+        const hasScoring =
+          s.match.bluePoints > 0 ||
+          s.match.redPoints > 0 ||
+          s.match.bluePenalties > 0 ||
+          s.match.redPenalties > 0 ||
+          s.match.blueAdvantage ||
+          s.match.redAdvantage ||
+          s.timer.running;
+        const matchOver =
+          !!activeMatch?.winner ||
+          s.timer.finished ||
+          s.timer.remaining === 0 ||
+          s.match.bluePenalties >= 5 ||
+          s.match.redPenalties >= 5 ||
+          s.match.blueEliminated ||
+          s.match.redEliminated;
+        if (hasScoring && !matchOver) {
+          throw new ActionRejectedError(
+            "match_in_progress",
+            "Another match is being played right now. Finish it (or advance / eliminate) before loading a new one.",
+          );
+        }
+      }
     }
     (core as any).loadMatchToScoreboardImpl(s, ref);
   },
@@ -159,7 +212,20 @@ const handlers: Record<string, Handler> = {
       };
     }
     (core as any).finalizeMatchByRef(s, ref, winnerName, loserName, false);
-    const next = (core as any).findNextMatch(s, ref);
+
+    // Prefer the engine's per-area next-match hint so the scoreboard
+    // and the NextMatchPanel agree. Falls back to a linear walk via
+    // findNextMatch when no hint is available (no engine state yet,
+    // or area unassigned for this subcategory).
+    let next = null;
+    const areaIdx = (payload as { areaIdx?: number | null })?.areaIdx;
+    if (typeof areaIdx === "number" && s.engine?.nextMatchPerArea) {
+      const hint = s.engine.nextMatchPerArea[areaIdx];
+      if (hint?.matchId) {
+        next = (core as any).refFromMatchId(hint.matchId);
+      }
+    }
+    if (!next) next = (core as any).findNextMatch(s, ref);
     if (next) (core as any).loadMatchToScoreboardImpl(s, next);
   },
   SET_KATA_SCORE(s, { side, value }) {

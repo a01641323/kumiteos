@@ -31,9 +31,9 @@ export default function RootLayout({
         <AuthProvider>
           <NetworkProvider>
             <LocalStateProvider>
-              <StoreProvider>
-                <OverlayProvider>
-                  <AreaProvider>
+              <AreaProvider>
+                <StoreProvider>
+                  <OverlayProvider>
                     <BodyClassSync />
                     <TopTabs />
                     {children}
@@ -41,9 +41,9 @@ export default function RootLayout({
                     <SuperadminOverlay />
                     <ConnectionRequestModal />
                     <ConnectionScreen />
-                  </AreaProvider>
-                </OverlayProvider>
-              </StoreProvider>
+                  </OverlayProvider>
+                </StoreProvider>
+              </AreaProvider>
             </LocalStateProvider>
           </NetworkProvider>
         </AuthProvider>

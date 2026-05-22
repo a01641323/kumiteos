@@ -112,7 +112,7 @@ export function Scoreboard({ state, variant }: Props) {
           ? "Time"
           : ""}
       </div>
-      {variant === "private" ? <ShortcutsPanel /> : null}
+      {variant === "private" ? <ShortcutsPanel discipline={m.discipline} /> : null}
     </div>
   );
 
@@ -183,7 +183,31 @@ function TieBreakFlash({ state }: { state: AppState }) {
   );
 }
 
-function ShortcutsPanel() {
+function ShortcutsPanel({ discipline }: { discipline: import("@karate/core").Discipline | null }) {
+  if (discipline === "kata") {
+    return (
+      <div className="shortcuts" aria-label="Keyboard shortcuts (kata)">
+        <Row
+          label="select side, then award score (opponent gets 5 − score)"
+          keys={["A", "R"]}
+          sep="/"
+          suffix={
+            <>
+              <span className="sep">→</span>
+              <span className="kbd">1</span>
+              <span className="sep">·</span>
+              <span className="kbd">2</span>
+              <span className="sep">·</span>
+              <span className="kbd">3</span>
+              <span className="sep">·</span>
+              <span className="kbd">4</span>
+            </>
+          }
+        />
+        <Row label="undo last action within 10s (no side selected)" keys={["Del", "⌫"]} sep="/" />
+      </div>
+    );
+  }
   return (
     <div className="shortcuts" aria-label="Keyboard shortcuts">
       <Row label="pause / resume timer" keys={["Space"]} />
