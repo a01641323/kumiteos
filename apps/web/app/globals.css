@@ -116,6 +116,29 @@ button { font-family: inherit; }
   transition: all 0.15s;
 }
 .tourn-settings-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.area-toggle-block {
+  margin-top: 12px; padding: 8px; border: 1px solid var(--color-border-base);
+  border-radius: 4px; background: rgba(255,255,255,0.02);
+}
+.area-toggle-title {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--color-fg-2); margin-bottom: 6px;
+}
+.area-toggle-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.area-toggle {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em;
+  padding: 4px 8px; border-radius: 3px; border: 1px solid var(--color-border-base);
+  background: transparent; color: var(--color-fg-1); cursor: pointer;
+  transition: all 0.12s;
+}
+.area-toggle.on { color: #16a34a; border-color: rgba(22,163,74,0.4); }
+.area-toggle.off { color: #6b7280; border-color: rgba(107,114,128,0.4); text-decoration: line-through; }
+.area-toggle.armed { color: #ca8a04; border-color: #ca8a04; background: rgba(202,138,4,0.1); }
+.area-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+.area-toggle .armed-tag { font-size: 9px; margin-left: 4px; }
+.area-toggle-note {
+  margin-top: 6px; font-size: 11px; line-height: 1.4; color: #ca8a04;
+}
 .admin-sidebar h3 {
   color: var(--color-fg-2);
   font-family: var(--font-mono);
@@ -409,6 +432,8 @@ button { font-family: inherit; }
 .match-node.active { border-color: var(--color-gold); box-shadow: 0 0 24px rgba(255, 215, 0, 0.3); }
 .match-node.locked { cursor: default; }
 .match-node.locked:hover { border-color: var(--color-border-base); transform: none; }
+.match-node.reserved { opacity: 0.55; border-style: dashed; cursor: not-allowed; }
+.match-node.reserved:hover { border-color: var(--color-border-base); transform: none; }
 .match-node .competitor {
   padding: 11px 14px;
   font-size: 13.5px;

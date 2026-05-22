@@ -42,7 +42,7 @@ export default function PrivatePage() {
       ? `Advance · ${describeRefLabel(state, ref)}`
       : `Match in progress · waiting for result`
     : "Advance · no match loaded";
-  const advDisabled = done || !ref || !m || !!m.winner || !matchOver;
+  const advDisabled = done || !ref || !m || !matchOver;
 
   return (
     <section id="view-private">

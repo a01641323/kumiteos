@@ -276,6 +276,7 @@ export function rebuildAllSubcategories(state: AppState): void {
       categoryOrder: state.tournament.categoryOrder,
       categories: state.tournament.categories,
       areaCount: state.tournament.settings.areaCount,
+      disabledAreas: state.tournament.disabledAreas,
     },
     next
   ).assignments;
@@ -347,6 +348,7 @@ export function setAreaCount(state: AppState, count: number): void {
       categoryOrder: state.tournament.categoryOrder,
       categories: state.tournament.categories,
       areaCount: n,
+      disabledAreas: state.tournament.disabledAreas,
     },
     filtered
   ).assignments;
@@ -468,6 +470,7 @@ export function startCategory(state: AppState, catId: string): string[] {
       categoryOrder: state.tournament.categoryOrder,
       categories: state.tournament.categories,
       areaCount: state.tournament.settings.areaCount,
+      disabledAreas: state.tournament.disabledAreas,
     },
     state.tournament.areaAssignments,
   ).assignments;
@@ -622,7 +625,10 @@ export function finalizeMatchByRef(
       finalizeRR(state, sub, ref.discipline);
     }
   }
-  resetLiveScoreboard(state);
+  // NB: do NOT resetLiveScoreboard here. The just-finished match must
+  // stay on the board until the operator presses Enter / Advance.
+  // Callers that intend to roll forward call loadMatchToScoreboardImpl
+  // (which overwrites every field) right after this.
 }
 
 export function finalizeSeries(

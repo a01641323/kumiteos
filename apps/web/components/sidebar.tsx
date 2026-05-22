@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { subcategoryStatus } from "@karate/core";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
@@ -11,11 +12,15 @@ interface Props {
 }
 
 export function AdminSidebar({ onOpenTournamentSettings }: Props) {
-  const { state, setActiveCategory, setActiveSubcategory } = useStore();
+  const { state, setActiveCategory, setActiveSubcategory, setAreaDisabled } = useStore();
   const { hasRole } = useAuth();
   const { current: areaIdx } = useArea();
   const t = state.tournament;
   const isSuperadmin = hasRole("superadmin");
+  const areaCount = t.settings.areaCount ?? 1;
+  const disabledSet = new Set<number>(t.disabledAreas ?? []);
+  // Two-stage disable: first click arms the area for confirm.
+  const [armedToDisable, setArmedToDisable] = useState<number | null>(null);
   // Superadmin always sees the union view — the per-subcategory area
   // badge below already shows where each fight is running, so an
   // extra filter is just noise. Referees still see only their area.
@@ -33,6 +38,58 @@ export function AdminSidebar({ onOpenTournamentSettings }: Props) {
           <span className="area-chip-label">Area {(areaIdx ?? 0) + 1}</span>
         </div>
       )}
+      {isSuperadmin ? (
+        <div className="area-toggle-block">
+          <div className="area-toggle-title">Areas</div>
+          <div className="area-toggle-row">
+            {Array.from({ length: areaCount }, (_, i) => {
+              const isDisabled = disabledSet.has(i);
+              const isArmed = armedToDisable === i;
+              const enabledCount = areaCount - disabledSet.size;
+              const wouldEmpty = !isDisabled && enabledCount <= 1;
+              return (
+                <button
+                  key={i}
+                  className={`area-toggle ${isDisabled ? "off" : "on"} ${isArmed ? "armed" : ""}`}
+                  disabled={wouldEmpty && !isDisabled}
+                  title={
+                    isDisabled
+                      ? `Area ${i + 1} disabled — click to re-enable`
+                      : isArmed
+                      ? `Click again to confirm: Area ${i + 1} will receive no more matches`
+                      : wouldEmpty
+                      ? "Cannot disable the last active area"
+                      : `Disable Area ${i + 1}`
+                  }
+                  onClick={() => {
+                    if (isDisabled) {
+                      setAreaDisabled(i, false);
+                      setArmedToDisable(null);
+                      return;
+                    }
+                    if (isArmed) {
+                      setAreaDisabled(i, true);
+                      setArmedToDisable(null);
+                    } else {
+                      setArmedToDisable(i);
+                    }
+                  }}
+                  onBlur={() => { if (isArmed) setArmedToDisable(null); }}
+                >
+                  {isDisabled ? "⛌" : isArmed ? "⚠" : "●"} A{i + 1}
+                  {isArmed ? <span className="armed-tag"> confirm?</span> : null}
+                </button>
+              );
+            })}
+          </div>
+          {armedToDisable !== null ? (
+            <div className="area-toggle-note">
+              Click <strong>A{armedToDisable + 1}</strong> again to confirm.
+              New matches will be re-routed to other areas until you re-enable it.
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <h3>Categories</h3>
       <div>
         {t.categoryOrder.map((cid) => {

@@ -20,6 +20,8 @@ type StatusTag = "Ready" | "Resting" | "Waiting" | "Interleaved";
 interface PanelData {
   areaIndex: number;
   areaName: string;
+  /** Home area the subcategory belongs to ("comes from" area). */
+  sourceAreaName: string | null;
   matchRef: ActiveMatchRef | null;
   matchId: string | null;
   subcategoryLabel: string;
@@ -39,6 +41,7 @@ function resolvePanelForArea(state: AppState, areaIndex: number, now: number): P
   const empty: PanelData = {
     areaIndex,
     areaName,
+    sourceAreaName: null,
     matchRef: null,
     matchId: null,
     subcategoryLabel: "",
@@ -126,9 +129,17 @@ function resolvePanelForArea(state: AppState, areaIndex: number, now: number): P
     }
   }
 
+  // Home area = subcategory's assigned area. If this match is being
+  // served on a different area than its home, the operator should see
+  // the SOURCE area name so they know where the fight comes from.
+  const homeAreaIdx = state.tournament.areaAssignments?.[ref.subcategoryId];
+  const sourceAreaName =
+    typeof homeAreaIdx === "number" ? `Area ${homeAreaIdx + 1}` : null;
+
   return {
     areaIndex,
     areaName,
+    sourceAreaName,
     matchRef: ref,
     matchId: hint.matchId,
     subcategoryLabel: subLabel,
@@ -200,7 +211,7 @@ function PanelCard({ data, onClose }: { data: PanelData; onClose: () => void }) 
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#94a3b8", textTransform: "uppercase" }}>
-          Next Match · {data.areaName}
+          Next Match · {data.sourceAreaName ?? data.areaName}
         </span>
         {data.discipline ? (
           <span

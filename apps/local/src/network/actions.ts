@@ -177,6 +177,35 @@ const handlers: Record<string, Handler> = {
     const ok = (core as any).markParticipantArrived(s, participantId, !!arrived);
     if (!ok) throw new ActionRejectedError("invalid", "participant not found");
   },
+  SET_AREA_DISABLED(s, { areaIndex, disabled }) {
+    if (typeof areaIndex !== "number" || areaIndex < 0) {
+      throw new ActionRejectedError("invalid", "bad areaIndex");
+    }
+    const n = s.tournament.settings.areaCount ?? 1;
+    if (areaIndex >= n) throw new ActionRejectedError("invalid", "areaIndex out of range");
+    const cur = new Set<number>(s.tournament.disabledAreas ?? []);
+    if (disabled) cur.add(areaIndex); else cur.delete(areaIndex);
+    // Refuse to disable the last enabled area — would freeze the tournament.
+    if (cur.size >= n) throw new ActionRejectedError("invalid", "cannot disable every area");
+    s.tournament.disabledAreas = [...cur].sort((a, b) => a - b);
+    // Redistribute: rebuild assignments so subcategories pinned to a
+    // newly-disabled area get re-bin-packed onto the survivors.
+    if (disabled) {
+      const keepAssignments: any = {};
+      for (const [subId, ai] of Object.entries(s.tournament.areaAssignments ?? {})) {
+        if (typeof ai === "number" && ai !== areaIndex) keepAssignments[subId] = ai;
+      }
+      s.tournament.areaAssignments = (core as any).buildAreaPlan(
+        {
+          categoryOrder: s.tournament.categoryOrder,
+          categories: s.tournament.categories,
+          areaCount: n,
+          disabledAreas: s.tournament.disabledAreas,
+        },
+        keepAssignments,
+      ).assignments;
+    }
+  },
   START_CATEGORY(s, { catId }) {
     if (typeof catId !== "string") {
       throw new ActionRejectedError("invalid", "missing catId");
@@ -193,7 +222,20 @@ const handlers: Record<string, Handler> = {
       (core as any).loadMatchToScoreboardImpl(s, ref);
     }
     const m = (core as any).getMatchByRef(s, ref);
-    if (!m || m.winner) return;
+    if (!m) return;
+    // Bracket winner already set (auto-finalize during scoring) — just
+    // roll forward to the next match without re-running winner logic.
+    if (m.winner) {
+      let nextPre = null as any;
+      const areaIdxPre = (payload as { areaIdx?: number | null })?.areaIdx;
+      if (typeof areaIdxPre === "number" && s.engine?.nextMatchPerArea) {
+        const hint = s.engine.nextMatchPerArea[areaIdxPre];
+        if (hint?.matchId) nextPre = (core as any).refFromMatchId(hint.matchId);
+      }
+      if (!nextPre) nextPre = (core as any).findNextMatch(s, ref);
+      if (nextPre) (core as any).loadMatchToScoreboardImpl(s, nextPre);
+      return;
+    }
     s.match.discipline = ref.discipline;
     const threshold = s.tournament.settings.pointDifference ?? 0;
     // Use the detailed call so we can surface "Más ippon/wasari/yuko"

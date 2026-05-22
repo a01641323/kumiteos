@@ -103,6 +103,11 @@ interface StoreApi {
    * builds the bracket, and unlocks the category for scoring.
    */
   startCategory: (catId: string) => void;
+  /**
+   * Toggle whether an area is operator-disabled. Disabled areas receive
+   * no new match assignments; existing matches continue running.
+   */
+  setAreaDisabled: (areaIndex: number, disabled: boolean) => void;
   loadMockTournament: (skipConfirm?: boolean) => void;
   /**
    * Tournament-data wipe: drops every participant, every bracket, every
@@ -456,11 +461,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             diff >= threshold ? "blue" : -diff >= threshold ? "red" : null;
           if (winnerSide) {
             s.timer.running = false;
+            s.timer.finished = true;
             const winnerName = winnerSide === "blue" ? s.match.blueName : s.match.redName;
             const loserName = winnerSide === "blue" ? s.match.redName : s.match.blueName;
             finalizeMatchByRef(s, ref, winnerName, loserName, false);
-            const next = findNextMatch(s, ref);
-            if (next) loadMatchToScoreboardImpl(s, next);
+            // Hold on this match — operator presses Enter/Advance to roll on.
           }
         }
       });
@@ -526,9 +531,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           updateLocal((s) => { loadMatchToScoreboardImpl(s, ref); });
           return;
         }
-        // Per Addition 2: match selection is LOCAL in networked modes.
-        // Do NOT send to the server. Other machines must not be affected.
-        setLocalActiveMatchRef(ref);
+        if (!actionable) return;
+        // Server is the single source of truth for the live scoreboard.
+        // The earlier "per-machine local selection" path stopped working
+        // once applyLocalActiveMatch was dropped, leaving bracket clicks
+        // with no visible effect. Send SELECT_MATCH so every machine sees
+        // the chosen match.
+        sendNamed(Actions.selectMatch(ref));
+        if (localActiveMatchRef) setLocalActiveMatchRef(null);
       },
       advanceActiveMatch: () => {
         if (mode === "standalone") {
@@ -536,7 +546,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const ref = s.match.activeMatchRef;
             if (!ref) return;
             const m = getMatchByRef(s, ref);
-            if (!m || m.winner) return;
+            if (!m) return;
+            // Bracket winner already set (auto-finalize during scoring) —
+            // just roll forward to the next match.
+            if (m.winner) {
+              const next = findNextMatch(s, ref);
+              if (next) loadMatchToScoreboardImpl(s, next);
+              return;
+            }
             s.match.discipline = ref.discipline;
             const threshold = s.tournament.settings.pointDifference ?? 0;
             const winnerSide = computeWinner(s.match, threshold > 0 ? threshold : undefined);
@@ -665,6 +682,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           sendNamed(Actions.startCategory(catId));
         }
       },
+      setAreaDisabled: (areaIndex, disabled) => {
+        if (mode === "standalone") {
+          updateLocal((s) => {
+            const n = s.tournament.settings.areaCount ?? 1;
+            const cur = new Set<number>(s.tournament.disabledAreas ?? []);
+            if (disabled) cur.add(areaIndex); else cur.delete(areaIndex);
+            if (cur.size >= n) return; // refuse to disable last enabled area
+            s.tournament.disabledAreas = [...cur].sort((a, b) => a - b);
+          });
+          return;
+        }
+        if (!actionable) return;
+        sendNamed(Actions.setAreaDisabled(areaIndex, disabled));
+      },
       loadMockTournament: (skipConfirm) => {
         const ok = skipConfirm ||
           (typeof window !== "undefined"
@@ -730,8 +761,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               const winnerName = winnerSide === "blue" ? s.match.blueName : s.match.redName;
               const loserName = winnerSide === "blue" ? s.match.redName : s.match.blueName;
               finalizeMatchByRef(s, ref, winnerName, loserName, false);
-              const next = findNextMatch(s, ref);
-              if (next) loadMatchToScoreboardImpl(s, next);
+              s.timer.finished = true;
+              // Hold on this match — operator presses Enter/Advance to roll on.
             }
           });
         } else {
@@ -781,8 +812,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const winnerName = winnerSide === "blue" ? s.match.blueName : s.match.redName;
             const loserName  = winnerSide === "blue" ? s.match.redName  : s.match.blueName;
             finalizeMatchByRef(s, ref, winnerName, loserName, false);
-            const next = findNextMatch(s, ref);
-            if (next) loadMatchToScoreboardImpl(s, next);
+            s.timer.finished = true;
+            // Hold on this match — operator presses Enter/Advance to roll on.
           });
         } else {
           sendNamed(Actions.setKataScore(side, value));

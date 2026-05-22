@@ -286,6 +286,13 @@ export interface AppState {
     categoryOrder: string[];
     activeCategoryId: string | null;
     areaAssignments: AreaAssignments;
+    /**
+     * Area indices currently DISABLED by the operator. Disabled areas
+     * are skipped by buildAreaPlan and runEngineTick — no new matches
+     * are routed to them until re-enabled. Empty / missing = all areas
+     * active. Legacy snapshots may lack this field.
+     */
+    disabledAreas?: number[];
     meta: TournamentMeta;
   };
   match: MatchState;

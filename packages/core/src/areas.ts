@@ -35,6 +35,8 @@ export interface AreaPlanInput {
   categoryOrder: string[];
   categories: Record<string, Category>;
   areaCount: number;
+  /** Areas the operator has manually disabled — receive no new assignments. */
+  disabledAreas?: number[];
 }
 
 export interface AreaPlanArea {
@@ -79,6 +81,11 @@ export function buildAreaPlan(
   existing: AreaAssignments = {}
 ): AreaPlan {
   const n = Math.max(1, Math.min(10, input.areaCount | 0));
+  const disabledSet = new Set((input.disabledAreas ?? []).filter((i) => i >= 0 && i < n));
+  // If every area is disabled, fall back to all enabled — refusing to
+  // assign would freeze the tournament.
+  const anyEnabled = disabledSet.size < n;
+  const isEnabled = (idx: number) => !anyEnabled || !disabledSet.has(idx);
   const areas: AreaPlanArea[] = Array.from({ length: n }, (_, i) => ({
     index: i,
     label: areaLabel(i),
@@ -87,14 +94,15 @@ export function buildAreaPlan(
   }));
   const assignments: AreaAssignments = {};
 
-  // Honor existing manual assignments first.
+  // Honor existing manual assignments first — but skip targets that are
+  // now disabled; those subcategories fall back to LPT redistribution.
   const claimed = new Set<string>();
   for (const catId of input.categoryOrder) {
     const cat = input.categories[catId];
     if (!cat) continue;
     for (const sub of cat.subcategories) {
       const target = existing[sub.id];
-      if (typeof target === "number" && target >= 0 && target < n) {
+      if (typeof target === "number" && target >= 0 && target < n && isEnabled(target)) {
         const cost = estimatedMatchCount(sub);
         areas[target]!.subcategoryIds.push(sub.id);
         areas[target]!.load += cost;
@@ -118,8 +126,9 @@ export function buildAreaPlan(
   pending.sort((a, b) => b.cost - a.cost || a.sub.id.localeCompare(b.sub.id));
 
   function lightestArea(): AreaPlanArea {
-    let best = areas[0]!;
-    for (const a of areas) if (a.load < best.load) best = a;
+    const pool = areas.filter((a) => isEnabled(a.index));
+    let best = pool[0]!;
+    for (const a of pool) if (a.load < best.load) best = a;
     return best;
   }
 

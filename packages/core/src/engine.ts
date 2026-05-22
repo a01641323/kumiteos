@@ -704,7 +704,12 @@ export function runEngineTick(state: AppState, opts: EngineTickOptions = {}): En
     return order(x.status) - order(y.status);
   });
 
+  const disabledAreaSet = new Set(state.tournament.disabledAreas ?? []);
   for (const area of areasByPriority) {
+    // Operator-disabled area: leave nextMatchPerArea[i] = null so no new
+    // match is queued there. Already-running matches stay; this just
+    // stops the engine from sending more.
+    if (disabledAreaSet.has(area.index)) continue;
     let best: { match: ReadyMatchView; score: number } | null = null;
     for (const m of ready) {
       if (usedMatchIds.has(m.runtime.id)) continue;

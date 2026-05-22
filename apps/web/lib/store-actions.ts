@@ -73,6 +73,9 @@ export function loadExtraMatch(discipline: "combat" | "kata"): NetworkActionEnve
 export function startCategory(catId: string): NetworkActionEnvelope {
   return { actionId: id(), actionType: "START_CATEGORY", payload: { catId }, ts: Date.now() };
 }
+export function setAreaDisabled(areaIndex: number, disabled: boolean): NetworkActionEnvelope {
+  return { actionId: id(), actionType: "SET_AREA_DISABLED", payload: { areaIndex, disabled }, ts: Date.now() };
+}
 /** Wholesale state replacement, used by complex superadmin operations. */
 export function replaceState(state: unknown): NetworkActionEnvelope {
   return { actionId: id(), actionType: "REPLACE_STATE", payload: { state }, ts: Date.now() };
