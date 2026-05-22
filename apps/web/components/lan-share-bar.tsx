@@ -2,10 +2,12 @@
 
 // Small one-liner bar that surfaces the host machine's LAN URL so the
 // operator can read it aloud or copy it for guests. Only shows when
-// the page is open on the host itself (hostname === localhost) — guest
-// machines already know how they got here.
+// the page is open on the host itself (hostname === localhost) AND
+// the route isn't the public-display surface — projectors / audience
+// monitors shouldn't show operator chrome.
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 interface DiscoverResp {
   serverIps: string[];
@@ -13,11 +15,17 @@ interface DiscoverResp {
 }
 
 export function LanShareBar() {
+  const pathname = usePathname();
   const [url, setUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // /public is the audience-facing scoreboard (projector / second
+  // monitor). Operator chrome doesn't belong there.
+  const isPublic = pathname?.startsWith("/public");
+
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isPublic) return;
     const host = window.location.hostname;
     // Only show on the host machine — remote viewers don't need their
     // own LAN URL surfaced back to them.
@@ -39,7 +47,7 @@ export function LanShareBar() {
     return () => { alive = false; };
   }, []);
 
-  if (!url) return null;
+  if (!url || isPublic) return null;
 
   async function copy() {
     if (!url) return;
