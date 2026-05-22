@@ -88,6 +88,53 @@ button { font-family: inherit; }
 }
 #tabs { position: relative; }
 
+/* ============ LAN share chip — operator-facing, both admin + private ============ */
+.lan-share {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  pointer-events: auto;
+}
+.lan-share-label {
+  font-family: var(--font-mono);
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+.lan-share-url {
+  font-family: var(--font-mono);
+  color: #e2e8f0;
+  font-size: 12px;
+  padding: 0;
+  background: transparent;
+}
+.lan-share-copy {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.lan-share-copy:hover { color: #fff; border-color: #cbd5e1; }
+
 /* ============ admin ============ */
 #view-admin { height: calc(100vh - 56px); display: flex; }
 .admin-sidebar {

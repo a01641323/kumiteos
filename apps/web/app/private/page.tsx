@@ -8,6 +8,7 @@ import { KeyboardHandler } from "@/components/keyboard-handler";
 import { SettingsModal } from "@/components/settings-modal";
 import { NextMatchPanel } from "@/components/next-match-panel";
 import { ExtraMatchModal } from "@/components/extra-match-modal";
+import { LanShareBar } from "@/components/lan-share-bar";
 
 export default function PrivatePage() {
   const {
@@ -46,6 +47,7 @@ export default function PrivatePage() {
 
   return (
     <section id="view-private">
+      <LanShareBar />
       <KeyboardHandler suppress={settingsOpen || !!state.jury} />
       <NextMatchPanel />
       <Scoreboard state={state} variant="private" />
