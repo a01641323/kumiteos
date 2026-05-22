@@ -7,7 +7,6 @@
 // monitors shouldn't show operator chrome.
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 
 interface DiscoverResp {
   serverIps: string[];
@@ -15,21 +14,19 @@ interface DiscoverResp {
 }
 
 export function LanShareBar() {
-  const pathname = usePathname();
   const [url, setUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-
-  // /public is the audience-facing scoreboard (projector / second
-  // monitor). Operator chrome doesn't belong there.
-  const isPublic = pathname?.startsWith("/public");
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (isPublic) return;
+    // /public is the audience-facing scoreboard. Operator chrome
+    // doesn't belong there.
+    if (window.location.pathname.startsWith("/public")) { setHidden(true); return; }
     const host = window.location.hostname;
     // Only show on the host machine — remote viewers don't need their
     // own LAN URL surfaced back to them.
-    if (host !== "localhost" && host !== "127.0.0.1") return;
+    if (host !== "localhost" && host !== "127.0.0.1") { setHidden(true); return; }
     let alive = true;
     (async () => {
       try {
@@ -47,7 +44,7 @@ export function LanShareBar() {
     return () => { alive = false; };
   }, []);
 
-  if (!url || isPublic) return null;
+  if (hidden || !url) return null;
 
   async function copy() {
     if (!url) return;
