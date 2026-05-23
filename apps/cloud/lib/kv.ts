@@ -74,4 +74,6 @@ export const keys = {
   releaseCurrent: "release:current",
   /** Set of every codeId ever minted — used by the admin /codes view. */
   codesSet: "code:all",
+  /** Tournament bundle attached to a code, applied at activation. */
+  bundleByCodeId: (codeId: string) => `bundle:byCodeId:${codeId}`,
 };
