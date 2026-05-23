@@ -374,6 +374,10 @@ export function SuperadminTerminal() {
           "  logo upload               open file picker (PNG/JPG/SVG, max 2MB)",
           "  logo remove               remove current logo",
           "",
+          "═══════════════════ BUNDLE EXPORT ══════════════",
+          "  export-bundle [label]     download tournament as JSON",
+          "                            ready to upload to /admin",
+          "",
           "═══════════════════ NETWORK ════════════════════",
           "  net status                show network mode & connected clients",
           "  net server                make this computer the server",
@@ -684,6 +688,52 @@ export function SuperadminTerminal() {
         }
 
         print("err", "Unknown competitor subcommand. See 'help'.");
+        return;
+      }
+
+      // ── export-bundle ─────────────────────────────────────────────────
+      // Builds the v1 tournament-bundle JSON the admin uploads at
+      // /admin/requests grant time. Logo is captured as a data URL so
+      // the bundle is self-contained (no extra fetch required).
+      if (cmd === "export-bundle") {
+        const t = state.tournament;
+        const labelArg = parts.slice(1).join(" ").trim();
+        const fallbackLabel = `Kumite/OS export · ${new Date().toLocaleDateString()}`;
+        const label = labelArg || fallbackLabel;
+        const bundle = {
+          bundleVersion: 1,
+          label,
+          preparedAt: new Date().toISOString(),
+          categoryDefs: t.categoryDefs,
+          participants: t.participants.map(({ id: _id, ...rest }) => rest),
+          settings: {
+            subcategorySize: t.settings.subcategorySize,
+            disciplineMode: t.settings.disciplineMode,
+            areaCount: t.settings.areaCount,
+            pointDifference: t.settings.pointDifference,
+          },
+          logoDataUrl: typeof t.meta.logoUrl === "string" && t.meta.logoUrl.startsWith("data:")
+            ? t.meta.logoUrl
+            : null,
+        };
+        const serialized = JSON.stringify(bundle, null, 2);
+        const sizeKB = Math.round(new Blob([serialized]).size / 1024);
+        const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "bundle";
+        const filename = `tournament-${safeLabel}.json`;
+        const blob = new Blob([serialized], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        print("hi", `✓ Exported bundle "${label}" (${sizeKB} KB → ${filename})`);
+        print("dim", `  ${bundle.participants.length} competitors · ${bundle.categoryDefs.length} categories · ${bundle.logoDataUrl ? "logo embedded" : "no logo"}`);
+        if (!bundle.logoDataUrl && t.meta.logoUrl) {
+          print("dim", "  (logo not embedded — server-hosted URLs aren't portable; re-upload via 'logo upload' for the bundle to carry it.)");
+        }
+        if (sizeKB > 500) {
+          print("err", `⚠ ${sizeKB} KB is close to the 600 KB cloud cap — shrink the logo if upload is rejected.`);
+        }
         return;
       }
 

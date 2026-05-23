@@ -248,6 +248,73 @@ const handlers: Record<string, Handler> = {
       ).assignments;
     }
   },
+  REPLACE_TOURNAMENT_BUNDLE(s, { bundle }) {
+    // Apply an admin-prepared tournament bundle (cloud-attached at
+    // grant time, delivered by /api/activate). Writes the bundle
+    // fields into state.tournament, then derives brackets +
+    // area-assignments so the customer lands on a fully-configured
+    // tournament with no further input.
+    if (!bundle || typeof bundle !== "object") {
+      throw new ActionRejectedError("invalid", "missing bundle");
+    }
+    if (bundle.bundleVersion !== 1) {
+      throw new ActionRejectedError("invalid", `unsupported bundleVersion ${bundle.bundleVersion}`);
+    }
+    // 1. settings
+    const settings = bundle.settings ?? {};
+    if (typeof settings.subcategorySize === "number") {
+      s.tournament.settings.subcategorySize = settings.subcategorySize;
+    }
+    if (typeof settings.disciplineMode === "string") {
+      s.tournament.settings.disciplineMode = settings.disciplineMode;
+    }
+    if (typeof settings.areaCount === "number") {
+      s.tournament.settings.areaCount = settings.areaCount;
+    }
+    if (typeof settings.pointDifference === "number") {
+      s.tournament.settings.pointDifference = settings.pointDifference;
+    }
+    // 2. category defs
+    if (Array.isArray(bundle.categoryDefs)) {
+      s.tournament.categoryDefs = bundle.categoryDefs;
+    }
+    // 3. participants (re-keyed via replaceParticipants, which
+    // generates fresh ids and rebuilds subcategories from scratch).
+    if (Array.isArray(bundle.participants)) {
+      (core as any).replaceParticipants(
+        s,
+        bundle.participants.map((p: any) => {
+          const { id: _id, ...rest } = p || {};
+          return rest;
+        }),
+      );
+    } else {
+      // Even with no participants, refresh brackets to reflect any
+      // category/setting changes above.
+      (core as any).rebuildAllSubcategories(s);
+    }
+    // 4. logo
+    if (bundle.logoDataUrl !== undefined) {
+      (core as any).setLogoUrl(s, bundle.logoDataUrl ?? null);
+    }
+    // 5. label / metadata for future reference
+    if (typeof bundle.label === "string") {
+      s.tournament.meta.bundleLabel = bundle.label;
+    }
+    if (typeof bundle.preparedAt === "string") {
+      s.tournament.meta.bundlePreparedAt = bundle.preparedAt;
+    }
+    // 6. area assignments: replaceParticipants already triggers a
+    // rebuild, but we want LPT-balanced area-level distribution too.
+    s.tournament.areaAssignments = (core as any).buildAreaPlan(
+      {
+        categoryOrder: s.tournament.categoryOrder,
+        categories: s.tournament.categories,
+        areaCount: s.tournament.settings.areaCount,
+        disabledAreas: s.tournament.disabledAreas,
+      },
+    ).assignments;
+  },
   START_CATEGORY(s, { catId }) {
     if (typeof catId !== "string") {
       throw new ActionRejectedError("invalid", "missing catId");

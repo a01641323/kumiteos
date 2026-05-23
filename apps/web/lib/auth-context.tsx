@@ -10,6 +10,7 @@ import type { ConnectTarget } from "./api-client";
 import { apiActivate, apiMe, ApiError } from "./api-client";
 import { getBrowserFingerprint } from "./browser-fingerprint";
 import { setToken as secureSetToken, getToken as secureGetToken, clearToken as secureClearToken } from "./secure-storage";
+import * as Actions from "./store-actions";
 
 /**
  * License-aware auth context. Replaces the old username/password AuthProvider.
@@ -376,6 +377,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     };
     setLicenseState(next);
+
+    // Apply any admin-prepared tournament bundle the cloud handed us.
+    // Best-effort — failure here doesn't block activation; the operator
+    // can always fall back to configuring manually.
+    if (r.bundle) {
+      try {
+        const net = (typeof window !== "undefined" ? window.__KARATE__?.network : null);
+        if (net) {
+          await net.sendAction(Actions.replaceTournamentBundle(r.bundle));
+        }
+      } catch (err) {
+        console.warn("[karate-bundle] failed to apply preloaded bundle:", err);
+      }
+    }
+
     return { role: r.payload.role, features: r.payload.features };
   }, [machineFp]);
 

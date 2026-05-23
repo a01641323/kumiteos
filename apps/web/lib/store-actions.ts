@@ -84,6 +84,15 @@ export function startCategory(catId: string): NetworkActionEnvelope {
 export function setAreaDisabled(areaIndex: number, disabled: boolean): NetworkActionEnvelope {
   return { actionId: id(), actionType: "SET_AREA_DISABLED", payload: { areaIndex, disabled }, ts: Date.now() };
 }
+/**
+ * Apply an admin-prepared tournament bundle delivered by /api/activate.
+ * Replaces categoryDefs + participants + settings + logo and rebuilds
+ * brackets. Dispatched once, right after activation success.
+ */
+export function replaceTournamentBundle(bundle: unknown): NetworkActionEnvelope {
+  return { actionId: id(), actionType: "REPLACE_TOURNAMENT_BUNDLE", payload: { bundle }, ts: Date.now() };
+}
+
 /** Wholesale state replacement, used by complex superadmin operations. */
 export function replaceState(state: unknown): NetworkActionEnvelope {
   return { actionId: id(), actionType: "REPLACE_STATE", payload: { state }, ts: Date.now() };

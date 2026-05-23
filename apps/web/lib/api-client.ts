@@ -211,6 +211,23 @@ export interface ActivationResponse {
     iat: number;
     jti: string;
   };
+  /** Admin-prepared tournament bundle delivered once on activation.
+   *  Absent when the code was granted without a preloaded bundle, or
+   *  when this is a same-machine re-activation. */
+  bundle?: {
+    bundleVersion: number;
+    label?: string;
+    preparedAt?: string;
+    categoryDefs: unknown[];
+    participants: unknown[];
+    settings: {
+      subcategorySize: number;
+      disciplineMode: "combat" | "kata" | "both";
+      areaCount: number;
+      pointDifference?: number;
+    };
+    logoDataUrl: string | null;
+  };
 }
 
 export async function apiActivate(code: string, machineFingerprint: string): Promise<ActivationResponse> {
