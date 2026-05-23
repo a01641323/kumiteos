@@ -1,6 +1,7 @@
 import { oauthConfigured } from "@/auth";
 import { listAllCodes } from "@/lib/tokens";
 import { getRequest } from "@/lib/requests";
+import { getBundleMeta } from "@/lib/bundle";
 import { CodesTable } from "./table";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,10 @@ export default async function CodesPage() {
   // the code was granted to without doing N round-trips client-side.
   const enriched = await Promise.all(
     codes.map(async (c) => {
-      const req = await getRequest(c.requestId);
+      const [req, bundleMeta] = await Promise.all([
+        getRequest(c.requestId),
+        getBundleMeta(c.codeId).catch(() => null),
+      ]);
       return {
         codeId: c.codeId,
         status: c.status,
@@ -24,6 +28,7 @@ export default async function CodesPage() {
         email: req?.email ?? null,
         org: req?.org ?? null,
         tournamentDate: req?.tournamentDate ?? null,
+        bundle: bundleMeta,
       };
     }),
   );

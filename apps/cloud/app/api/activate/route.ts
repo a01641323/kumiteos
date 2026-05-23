@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findByCode, hashCode, markActivated } from "@/lib/tokens";
 import { signLicenseJwt } from "@/lib/jwt";
+import { deleteBundle, getBundle } from "@/lib/bundle";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,23 @@ export async function POST(req: NextRequest) {
   });
   await markActivated(hashCode(code), fp, claims.jti);
 
+  // One-shot bundle delivery. If the admin attached a tournament
+  // bundle to this code, hand it back exactly once and then drop the
+  // KV entry — the binary now owns the only copy. Same-machine
+  // re-activation deliberately does NOT redeliver because the local
+  // state would already be in place; redelivery would clobber any
+  // scoring the operator did.
+  let bundle = null;
+  try {
+    if (record.status !== "used") {
+      bundle = await getBundle(record.codeId);
+      if (bundle) await deleteBundle(record.codeId);
+    }
+  } catch {
+    // Don't fail activation just because bundle delivery hit a snag —
+    // the operator can still configure the tournament manually.
+  }
+
   return NextResponse.json({
     token,
     payload: {
@@ -56,5 +74,6 @@ export async function POST(req: NextRequest) {
       iat: claims.iat as number,
       jti: claims.jti,
     },
+    ...(bundle ? { bundle } : {}),
   });
 }

@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
+export interface BundleMetaRow {
+  label: string | null;
+  preparedAt: string | null;
+  participantCount: number;
+  categoryCount: number;
+  hasLogo: boolean;
+  sizeBytes: number;
+  storedAt: number;
+}
 
 export interface CodeRow {
   codeId: string;
@@ -14,6 +24,7 @@ export interface CodeRow {
   email: string | null;
   org: string | null;
   tournamentDate: string | null;
+  bundle: BundleMetaRow | null;
 }
 
 function fmtRemaining(ms: number): string {
@@ -65,14 +76,80 @@ export function CodesTable({ rows }: { rows: CodeRow[] }) {
     }
   }
 
+  // Replace-bundle flow: a hidden <input type=file> per row would be
+  // verbose; instead we use one shared input and remember which row
+  // launched it. When the file is parsed + validated, PUT it.
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const pendingReplaceCodeId = useRef<string | null>(null);
+
+  function openReplacePicker(codeId: string) {
+    if (busy) return;
+    pendingReplaceCodeId.current = codeId;
+    fileRef.current?.click();
+  }
+
+  async function onReplaceFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const codeId = pendingReplaceCodeId.current;
+    pendingReplaceCodeId.current = null;
+    if (!file || !codeId) return;
+    setBusy(codeId);
+    try {
+      const text = await file.text();
+      let parsed: unknown;
+      try { parsed = JSON.parse(text); }
+      catch { alert("Bundle inválido: no es JSON"); return; }
+      if (!parsed || typeof parsed !== "object" || (parsed as { bundleVersion?: unknown }).bundleVersion !== 1) {
+        alert("Bundle inválido: bundleVersion debe ser 1");
+        return;
+      }
+      const r = await fetch(`/api/admin/codes/${encodeURIComponent(codeId)}/bundle`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bundle: parsed }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        if (j.error === "already_activated") {
+          alert("Este código ya fue activado — el bundle no se puede reemplazar.");
+        } else {
+          alert(`No se pudo reemplazar: ${j.detail ?? j.error ?? r.status}`);
+        }
+      } else {
+        router.refresh();
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function fmtBundle(b: BundleMetaRow | null) {
+    if (!b) return null;
+    const parts: string[] = [];
+    parts.push(`${b.participantCount}p`);
+    parts.push(`${b.categoryCount}c`);
+    if (b.hasLogo) parts.push("logo");
+    parts.push(`${Math.round(b.sizeBytes / 1024)}KB`);
+    return parts.join(" · ");
+  }
+
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={onReplaceFile}
+        style={{ display: "none" }}
+      />
       <table className="admin-table codes-table">
         <thead>
           <tr>
             <th>Estado</th>
             <th>Email · Organización</th>
             <th>Tiempo restante</th>
+            <th>Bundle</th>
             <th>Emitido</th>
             <th>Activado</th>
             <th>codeId</th>
@@ -84,6 +161,8 @@ export function CodesTable({ rows }: { rows: CodeRow[] }) {
             const pill = pillForStatus(row, now);
             const remaining = row.expiresAt - now;
             const canRevoke = row.status !== "revoked" && row.expiresAt > now;
+            const canReplaceBundle = row.status === "unused";
+            const bundleLine = fmtBundle(row.bundle);
             return (
               <tr key={row.codeId}>
                 <td>
@@ -97,6 +176,30 @@ export function CodesTable({ rows }: { rows: CodeRow[] }) {
                   </div>
                 </td>
                 <td className="mono">{fmtRemaining(remaining)}</td>
+                <td>
+                  {row.bundle ? (
+                    <div>
+                      <div className="small" title={row.bundle.label ?? undefined}>
+                        📦 {row.bundle.label ? (row.bundle.label.length > 24 ? `${row.bundle.label.slice(0, 22)}…` : row.bundle.label) : "adjuntado"}
+                      </div>
+                      <div className="muted small mono">{bundleLine}</div>
+                    </div>
+                  ) : (
+                    <span className="muted small">— ninguno —</span>
+                  )}
+                  {canReplaceBundle ? (
+                    <div style={{ marginTop: 4 }}>
+                      <button
+                        className="btn-row"
+                        onClick={() => openReplacePicker(row.codeId)}
+                        disabled={busy === row.codeId}
+                        title="Reemplazar el bundle adjunto (sólo antes de la activación)"
+                      >
+                        {busy === row.codeId ? "…" : row.bundle ? "Reemplazar" : "Adjuntar"}
+                      </button>
+                    </div>
+                  ) : null}
+                </td>
                 <td className="muted small">{new Date(row.createdAt).toLocaleString()}</td>
                 <td className="muted small">
                   {row.activatedAt ? new Date(row.activatedAt).toLocaleString() : "—"}
