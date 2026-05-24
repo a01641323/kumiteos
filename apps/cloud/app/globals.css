@@ -482,3 +482,149 @@ button { font-family: inherit; }
   .step { border-right: none; border-bottom: 1px solid var(--color-line); }
   .step:last-child { border-bottom: none; }
 }
+
+/* ============ global utility classes (used by wizard) ============ */
+.muted { color: var(--color-fg-2); }
+.small { font-size: 12px; }
+.mono { font-family: var(--font-mono); }
+.field-hint { display: block; margin-top: 4px; font-size: 12px; color: var(--color-fg-2); }
+
+/* ============ wizard ============ */
+.wiz-chips {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  margin-top: 16px;
+  border: 1px solid var(--color-line);
+  padding: 6px;
+  background: color-mix(in oklab, var(--color-fg) 3%, transparent);
+}
+.wiz-chip {
+  display: inline-flex; flex-direction: column; align-items: flex-start;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-fg-2);
+  font-family: inherit; font-size: 13px;
+  cursor: pointer; min-width: 100px;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.wiz-chip:hover:not([disabled]) { color: var(--color-fg); }
+.wiz-chip.done { color: var(--color-fg); }
+.wiz-chip.active {
+  background: color-mix(in oklab, var(--color-accent) 12%, transparent);
+  border-color: color-mix(in oklab, var(--color-accent) 40%, transparent);
+  color: var(--color-fg);
+}
+.wiz-chip[disabled] { opacity: 0.5; cursor: not-allowed; }
+.wiz-chip-num {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.08em; opacity: 0.7;
+}
+.wiz-chip-label { font-weight: 500; }
+
+.wizard-step { padding: 8px 4px 16px; }
+.step-intro { color: var(--color-fg-2); margin: 0 0 20px; font-size: 14px; }
+
+.wiz-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 16px; margin-top: 24px; padding-top: 16px;
+  border-top: 1px solid var(--color-line);
+  flex-wrap: wrap;
+}
+.wiz-meter { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px; }
+.meter-bar {
+  position: relative; flex: 1; max-width: 240px; height: 6px;
+  background: var(--color-line); border-radius: 3px; overflow: hidden;
+}
+.meter-fill { height: 100%; transition: width 220ms, background 220ms; }
+.wiz-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ============ segmented controls ============ */
+.seg-group {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 4px; padding: 4px;
+  border: 1px solid var(--color-line);
+  background: color-mix(in oklab, var(--color-fg) 3%, transparent);
+}
+.seg {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 14px; background: transparent; color: var(--color-fg-2);
+  border: 1px solid transparent; font-family: inherit; font-size: 14px;
+  cursor: pointer; text-align: left;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.seg:hover:not([disabled]) { color: var(--color-fg); }
+.seg.active {
+  background: color-mix(in oklab, var(--color-accent) 12%, transparent);
+  border-color: color-mix(in oklab, var(--color-accent) 40%, transparent);
+  color: var(--color-fg);
+}
+.seg[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* ============ category form ============ */
+.cat-table {
+  width: 100%; border-collapse: collapse; margin: 12px 0;
+  font-size: 13px;
+}
+.cat-table th, .cat-table td {
+  padding: 8px 12px; text-align: left;
+  border-bottom: 1px solid var(--color-line);
+}
+.cat-table th {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-fg-2);
+}
+.cat-form {
+  border: 1px solid var(--color-line);
+  padding: 16px;
+  margin-top: 16px;
+  background: color-mix(in oklab, var(--color-fg) 2%, transparent);
+}
+
+/* ============ belt chips ============ */
+.belt-grid {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 6px;
+}
+.belt-chip {
+  padding: 6px 10px;
+  border: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-fg);
+  font-family: inherit; font-size: 12px;
+  cursor: pointer;
+}
+.belt-chip:hover { border-color: var(--color-accent); }
+.belt-chip.active {
+  background: color-mix(in oklab, var(--color-accent) 14%, transparent);
+  border-color: var(--color-accent);
+}
+/* Optional per-color dot — light visual hint only */
+.belt-chip::before {
+  content: ""; display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 6px; vertical-align: middle;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 30%, transparent);
+}
+.belt-white::before { background: #f9fafb; }
+.belt-yellow::before { background: #facc15; }
+.belt-orange::before { background: #fb923c; }
+.belt-green::before { background: #22c55e; }
+.belt-blue::before { background: #3b82f6; }
+.belt-purple::before { background: #a855f7; }
+.belt-brown::before { background: #92400e; }
+.belt-black::before { background: #111827; }
+
+/* ============ logo picker ============ */
+.logo-picker { display: grid; gap: 8px; }
+.logo-preview-row {
+  display: flex; gap: 16px; align-items: center;
+  padding: 12px;
+  border: 1px solid var(--color-line);
+  background: color-mix(in oklab, var(--color-fg) 2%, transparent);
+}
+
+/* ============ review grid ============ */
+.review-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}

@@ -76,4 +76,9 @@ export const keys = {
   codesSet: "code:all",
   /** Tournament bundle attached to a code, applied at activation. */
   bundleByCodeId: (codeId: string) => `bundle:byCodeId:${codeId}`,
+  /**
+   * In-progress bundle attached to a request while still a draft.
+   * Moved to bundleByCodeId on approval (and deleted from here).
+   */
+  requestBundleById: (requestId: string) => `bundle:byRequestId:${requestId}`,
 };

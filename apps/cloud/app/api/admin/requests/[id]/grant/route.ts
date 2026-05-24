@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { getRequest, markGranted } from "@/lib/requests";
 import { mintCode } from "@/lib/tokens";
 import { requireSuperadmin } from "@/lib/admin-guard";
-import { storeBundle, validateBundle } from "@/lib/bundle";
+import {
+  storeBundle, validateBundle, getRequestBundle, deleteRequestBundle, bundleByteSize,
+} from "@/lib/bundle";
+import { auth } from "@/auth";
 
 export const runtime = "nodejs";
 
 interface RouteContext { params: Promise<{ id: string }> }
 
-export async function POST(req: Request, ctx: RouteContext) {
+export async function POST(_req: Request, ctx: RouteContext) {
   const denied = await requireSuperadmin();
   if (denied) return denied;
 
@@ -19,42 +22,36 @@ export async function POST(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: `already_${cur.status}` }, { status: 409 });
   }
 
-  // Optional bundle in the body. If a body was sent, parse it; null
-  // body → unattached grant (legacy flow, still supported).
-  let bundleInput: unknown = null;
-  try {
-    const text = await req.text();
-    if (text && text.trim().length > 0) {
-      const parsed = JSON.parse(text);
-      bundleInput = parsed?.bundle ?? null;
+  // Pull the in-progress bundle the client autosaved during the wizard.
+  // Legacy requests (created before the wizard shipped) won't have one
+  // — those grant fine without a bundle.
+  const draftBundle = await getRequestBundle(id);
+  let validation: ReturnType<typeof validateBundle> | null = null;
+  if (draftBundle) {
+    validation = validateBundle(draftBundle, { partial: false });
+    if (!validation.ok) {
+      return NextResponse.json({ error: "invalid_bundle", detail: validation.error }, { status: 400 });
     }
-  } catch {
-    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  let bundleValidation: ReturnType<typeof validateBundle> | null = null;
-  if (bundleInput) {
-    bundleValidation = validateBundle(bundleInput);
-    if (!bundleValidation.ok) {
-      return NextResponse.json({ error: "invalid_bundle", detail: bundleValidation.error }, { status: 400 });
-    }
-  }
+  const session = await auth();
+  const decidedBy = (session?.user as { id?: string })?.id ?? session?.user?.email ?? undefined;
 
   const { code, record } = await mintCode({ requestId: id });
-  const next = await markGranted(id, record.codeId, code);
+  const next = await markGranted(id, record.codeId, code, decidedBy);
   if (!next) return NextResponse.json({ error: "race_lost" }, { status: 409 });
 
-  if (bundleValidation && bundleValidation.ok) {
+  if (validation && validation.ok) {
     try {
-      await storeBundle(record.codeId, bundleValidation.bundle, bundleValidation.sizeBytes);
+      await storeBundle(record.codeId, validation.bundle, validation.sizeBytes);
+      await deleteRequestBundle(id);
     } catch (err) {
-      // Bundle persistence failed AFTER the code was minted. Return
-      // success so the operator can still use the code, but flag.
       return NextResponse.json({
         ok: true,
         codeId: record.codeId,
         bundleAttached: false,
         bundleError: (err as Error).message,
+        sizeBytes: bundleByteSize(validation.bundle),
       });
     }
   }
@@ -62,6 +59,6 @@ export async function POST(req: Request, ctx: RouteContext) {
   return NextResponse.json({
     ok: true,
     codeId: record.codeId,
-    bundleAttached: !!bundleValidation,
+    bundleAttached: !!validation,
   });
 }
