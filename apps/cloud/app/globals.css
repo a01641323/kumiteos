@@ -101,6 +101,7 @@ button { font-family: inherit; }
 .hero-title-line.outline {
   -webkit-text-stroke: 2px var(--color-fg);
   color: transparent; font-style: italic;
+  font-size: clamp(48px, 10vw, 150px);
 }
 .kanji {
   position: absolute; right: 32px; top: 50%; transform: translateY(-50%);
