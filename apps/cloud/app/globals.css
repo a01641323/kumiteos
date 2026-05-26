@@ -606,6 +606,24 @@ button { font-family: inherit; }
   border-radius: 50%; margin-right: 6px; vertical-align: middle;
   border: 1px solid color-mix(in oklab, var(--color-fg) 30%, transparent);
 }
+/* Action chips ("Todas", "Limpiar") sit inline with the belt chips —
+   same pill shape so they read as related, but no color dot and a
+   muted border so they don't fight the belts for attention. */
+.belt-chip.belt-action {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-2);
+  border-color: color-mix(in oklab, var(--color-fg) 18%, var(--color-line));
+}
+.belt-chip.belt-action::before { display: none; }
+.belt-chip.belt-action:hover {
+  color: var(--color-fg);
+  border-color: var(--color-accent);
+  background: color-mix(in oklab, var(--color-accent) 10%, transparent);
+}
+
 .belt-white::before { background: #f9fafb; }
 .belt-yellow::before { background: #facc15; }
 .belt-orange::before { background: #fb923c; }

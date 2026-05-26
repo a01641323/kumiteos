@@ -53,8 +53,20 @@ export interface CategoryDef {
 }
 
 export interface ParticipantRow {
+  /** Full display name — first + last go here together. */
   nombre: string;
+  /**
+   * Original "apellido" slot kept empty so the local app's existing
+   * Participant.apellido type stays a string. The wizard never
+   * collects a separate last name; it lives inside `nombre`.
+   */
   apellido: string;
+  /**
+   * Club / dojo the competitor represents. Stored in the bundle so
+   * future scoreboard/bracket revisions can surface it. Today no
+   * downstream UI displays it — it's collected purely as data.
+   */
+  dojo: string;
   beltColor: BeltColor;
   age: number;
   arrived?: boolean;

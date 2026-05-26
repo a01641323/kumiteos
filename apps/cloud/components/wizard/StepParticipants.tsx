@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { NumberField } from "./NumberField";
 import { BELT_ALIASES, BELT_LABEL, BELT_ORDER, type BeltColor, type ParticipantRow } from "./types";
 
 interface Props {
@@ -9,26 +10,31 @@ interface Props {
   disabled?: boolean;
 }
 
-const SAMPLE = `nombre,apellido,beltColor,age
-Juan,Pérez,blanco,12
-María,González,naranja,14
-Luis,Ramírez,negro,28`;
+const SAMPLE = `nombre,dojo,beltColor,age
+Juan Pérez,Naviera Karate,blanco,12
+María González,Dojo Centro,naranja,14
+Luis Ramírez,Bushido,negro,28`;
 
 export function StepParticipants({ value, onChange, disabled }: Props) {
   const [errors, setErrors] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [draft, setDraft] = useState<ParticipantRow>({
-    nombre: "", apellido: "", beltColor: "white", age: 12, arrived: false,
+    nombre: "", apellido: "", dojo: "", beltColor: "white", age: 12, arrived: false,
   });
 
   function patchDraft<K extends keyof ParticipantRow>(k: K, v: ParticipantRow[K]) {
     setDraft((d) => ({ ...d, [k]: v }));
   }
   function addDraft() {
-    if (!draft.nombre.trim() || !draft.apellido.trim()) return;
-    onChange([...value, { ...draft, arrived: false }]);
-    setDraft({ nombre: "", apellido: "", beltColor: draft.beltColor, age: draft.age, arrived: false });
+    // Dojo is optional; only the name is required so the operator can
+    // add a competitor whose dojo is unknown at the time.
+    if (!draft.nombre.trim()) return;
+    onChange([...value, { ...draft, apellido: "", arrived: false }]);
+    setDraft({
+      nombre: "", apellido: "", dojo: draft.dojo,
+      beltColor: draft.beltColor, age: draft.age, arrived: false,
+    });
   }
   function removeAt(i: number) {
     onChange(value.filter((_, idx) => idx !== i));
@@ -69,9 +75,9 @@ export function StepParticipants({ value, onChange, disabled }: Props) {
     <div className="wizard-step">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16 }}>
         <p className="step-intro" style={{ margin: 0 }}>
-          Sube un CSV y/o agrega competidores a mano. Puedes hacer las dos
-          cosas — el CSV agrega o reemplaza la lista actual, y luego puedes
-          añadir más manualmente.
+          Sube un CSV y/o agrega competidores a mano. El nombre incluye apellido
+          (ej. <em>Juan Pérez</em>). El dojo se guarda para futuros usos, no se
+          muestra hoy en el marcador.
         </p>
         <span className="section-meta">{value.length} CARGADOS</span>
       </div>
@@ -96,25 +102,25 @@ export function StepParticipants({ value, onChange, disabled }: Props) {
               </button>
             </div>
             <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>
-              Formato: columnas <code>nombre, apellido, beltColor, age</code>.
+              Formato: columnas <code>nombre, dojo, beltColor, age</code>.
               Acepta nombres de cinta en español (blanco, naranja, marrón…).
             </p>
           </div>
 
           <div className="cat-form" style={{ marginTop: 12 }}>
             <h4 className="section-meta" style={{ margin: "0 0 8px" }}>AÑADIR A MANO</h4>
-            <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr 140px 80px auto" }}>
+            <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1.4fr 1.2fr 140px 80px auto" }}>
               <input
                 className="field-input"
-                placeholder="Nombre"
+                placeholder="Nombre completo"
                 value={draft.nombre}
                 onChange={(e) => patchDraft("nombre", e.target.value)}
               />
               <input
                 className="field-input"
-                placeholder="Apellido"
-                value={draft.apellido}
-                onChange={(e) => patchDraft("apellido", e.target.value)}
+                placeholder="Dojo"
+                value={draft.dojo}
+                onChange={(e) => patchDraft("dojo", e.target.value)}
               />
               <select
                 className="field-input"
@@ -123,13 +129,12 @@ export function StepParticipants({ value, onChange, disabled }: Props) {
               >
                 {BELT_ORDER.map((b) => <option key={b} value={b}>{BELT_LABEL[b]}</option>)}
               </select>
-              <input
-                type="number"
-                min={3} max={99}
-                className="field-input"
+              <NumberField
                 value={draft.age}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => patchDraft("age", parseInt(e.target.value || "0", 10))}
+                defaultValue={12}
+                min={3} max={99}
+                onChange={(v) => patchDraft("age", v)}
+                aria-label="Edad"
               />
               <button type="button" className="btn primary" onClick={addDraft}>Añadir</button>
             </div>
@@ -158,13 +163,13 @@ export function StepParticipants({ value, onChange, disabled }: Props) {
           <div style={{ maxHeight: 320, overflow: "auto", border: "1px solid var(--color-line)", borderRadius: 4 }}>
             <table className="cat-table" style={{ margin: 0 }}>
               <thead>
-                <tr><th>Nombre</th><th>Apellido</th><th>Cinta</th><th>Edad</th><th></th></tr>
+                <tr><th>Nombre</th><th>Dojo</th><th>Cinta</th><th>Edad</th><th></th></tr>
               </thead>
               <tbody>
                 {value.map((p, i) => (
                   <tr key={i}>
                     <td>{p.nombre}</td>
-                    <td>{p.apellido}</td>
+                    <td className="muted small">{p.dojo || "—"}</td>
                     <td className="muted small">{BELT_LABEL[p.beltColor] ?? p.beltColor}</td>
                     <td className="mono small">{p.age}</td>
                     <td style={{ textAlign: "right" }}>
@@ -191,13 +196,15 @@ function parseCsv(text: string): { rows: ParticipantRow[]; errs: string[] } {
   const header = splitLine(lines[0] ?? "").map((h) => h.trim().toLowerCase());
   const idx = {
     nombre: header.indexOf("nombre"),
-    apellido: header.indexOf("apellido"),
+    // Accept legacy "apellido" header too so old templates still import —
+    // we just stuff its value into the `dojo` slot.
+    dojo: header.indexOf("dojo") >= 0 ? header.indexOf("dojo") : header.indexOf("apellido"),
     beltColor: header.indexOf("beltcolor"),
     age: header.indexOf("age"),
   };
-  for (const k of ["nombre", "apellido", "beltColor", "age"] as const) {
-    if (idx[k] < 0) errs.push(`Falta columna requerida: ${k}`);
-  }
+  if (idx.nombre < 0) errs.push("Falta columna requerida: nombre");
+  if (idx.beltColor < 0) errs.push("Falta columna requerida: beltColor");
+  if (idx.age < 0) errs.push("Falta columna requerida: age");
   if (errs.length > 0) return { rows, errs };
 
   for (let i = 1; i < lines.length; i++) {
@@ -205,15 +212,15 @@ function parseCsv(text: string): { rows: ParticipantRow[]; errs: string[] } {
     if (!raw || !raw.trim()) continue;
     const cols = splitLine(raw);
     const nombre = (cols[idx.nombre] ?? "").trim();
-    const apellido = (cols[idx.apellido] ?? "").trim();
+    const dojo = idx.dojo >= 0 ? (cols[idx.dojo] ?? "").trim() : "";
     const beltRaw = (cols[idx.beltColor] ?? "").trim().toLowerCase();
     const ageRaw = (cols[idx.age] ?? "").trim();
-    if (!nombre || !apellido) { errs.push(`Línea ${i + 1}: nombre y apellido son requeridos`); continue; }
+    if (!nombre) { errs.push(`Línea ${i + 1}: nombre es requerido`); continue; }
     const belt = BELT_ALIASES[beltRaw];
     if (!belt) { errs.push(`Línea ${i + 1}: cinta desconocida "${beltRaw}"`); continue; }
     const age = Number.parseInt(ageRaw, 10);
     if (!Number.isFinite(age) || age < 3 || age > 99) { errs.push(`Línea ${i + 1}: edad inválida "${ageRaw}"`); continue; }
-    rows.push({ nombre, apellido, beltColor: belt, age, arrived: false });
+    rows.push({ nombre, apellido: "", dojo, beltColor: belt, age, arrived: false });
   }
   return { rows, errs };
 }

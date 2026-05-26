@@ -1,5 +1,6 @@
 "use client";
 
+import { NumberField } from "./NumberField";
 import type { BundleSettings } from "./types";
 
 interface Props {
@@ -28,15 +29,13 @@ export function StepSettings({ value, onChange, disabled }: Props) {
 
       <label className="field">
         <span className="field-label">Número de áreas (1–6)</span>
-        <input
-          type="number"
-          min={1}
-          max={6}
+        <NumberField
           value={value.areaCount}
-          onFocus={(e) => e.target.select()}
-          onChange={(e) => set("areaCount", clamp(parseInt(e.target.value || "1", 10), 1, 6))}
-          className="field-input"
+          defaultValue={1}
+          min={1} max={6}
+          onChange={(v) => set("areaCount", v)}
           disabled={disabled}
+          aria-label="Número de áreas"
         />
         <span className="field-hint">
           Cada área corre su propio scoreboard. Más áreas = torneo más rápido pero
@@ -82,15 +81,13 @@ export function StepSettings({ value, onChange, disabled }: Props) {
 
       <label className="field">
         <span className="field-label">Diferencia de puntos para victoria automática</span>
-        <input
-          type="number"
-          min={0}
-          max={20}
+        <NumberField
           value={value.pointDifference ?? 8}
-          onFocus={(e) => e.target.select()}
-          onChange={(e) => set("pointDifference", clamp(parseInt(e.target.value || "0", 10), 0, 20))}
-          className="field-input"
+          defaultValue={8}
+          min={0} max={20}
+          onChange={(v) => set("pointDifference", v)}
           disabled={disabled}
+          aria-label="Diferencia de puntos"
         />
         <span className="field-hint">0 = desactivado. Estándar mundial: 8 puntos.</span>
       </label>
@@ -98,7 +95,3 @@ export function StepSettings({ value, onChange, disabled }: Props) {
   );
 }
 
-function clamp(n: number, lo: number, hi: number): number {
-  if (!Number.isFinite(n)) return lo;
-  return Math.min(hi, Math.max(lo, n));
-}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { NumberField } from "./NumberField";
 import {
   BELT_LABEL, BELT_ORDER, deriveCategoryName,
   type BeltColor, type CategoryDef,
@@ -111,14 +112,22 @@ export function StepCategories({ value, onChange, disabled }: Props) {
           </div>
 
           <div className="field">
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
-              <span className="field-label" style={{ margin: 0 }}>Cinturones</span>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button type="button" className="btn-row" onClick={selectAllBelts}>Seleccionar todas</button>
-                <button type="button" className="btn-row" onClick={clearAllBelts}>Limpiar</button>
-              </div>
-            </div>
+            <span className="field-label" style={{ marginBottom: 6 }}>Cinturones</span>
             <div className="belt-grid">
+              <button
+                type="button"
+                className="belt-chip belt-action"
+                onClick={selectAllBelts}
+              >
+                Todas
+              </button>
+              <button
+                type="button"
+                className="belt-chip belt-action"
+                onClick={clearAllBelts}
+              >
+                Limpiar
+              </button>
               {BELT_ORDER.map((b) => (
                 <button
                   key={b}
@@ -135,24 +144,24 @@ export function StepCategories({ value, onChange, disabled }: Props) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <label className="field">
               <span className="field-label">Edad mínima</span>
-              <input
-                type="number"
-                min={3} max={99}
-                className="field-input"
+              <NumberField
                 value={draft.minAge}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => patchDraft("minAge", parseInt(e.target.value || "0", 10))}
+                defaultValue={6}
+                min={3} max={99}
+                onChange={(v) => patchDraft("minAge", v)}
+                aria-label="Edad mínima"
               />
             </label>
             <label className="field">
               <span className="field-label">Edad máxima (vacío = sin tope)</span>
-              <input
-                type="number"
+              <NumberField
+                value={draft.maxAge ?? 0}
+                defaultValue={0}
                 min={3} max={99}
-                className="field-input"
-                value={draft.maxAge ?? ""}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => patchDraft("maxAge", e.target.value ? parseInt(e.target.value, 10) : null)}
+                allowNull
+                onNull={() => patchDraft("maxAge", null)}
+                onChange={(v) => patchDraft("maxAge", v)}
+                aria-label="Edad máxima"
               />
             </label>
           </div>
