@@ -60,22 +60,31 @@ export function ConnectionRequestModal() {
   return (
     <div className="jury-overlay" role="dialog" aria-modal="true" aria-label="Connection request">
       <div className="jury-modal" style={{ maxWidth: 460 }}>
-        <h2>Connection request</h2>
-        <div className="jury-subtitle" style={{ marginBottom: 20 }}>
-          {queue.length > 1 ? `1 of ${queue.length} pending` : "Approve to grant access"}
+        <h2>Solicitud de conexión</h2>
+        <div className="jury-subtitle" style={{ marginBottom: 22 }}>
+          {queue.length > 1 ? `1 de ${queue.length} pendientes` : "Un equipo quiere unirse"}
         </div>
 
         <div style={{ marginBottom: 26 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "var(--color-text, #fff)" }}>
+          <div
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: 20,
+              fontWeight: 600,
+              color: "var(--color-fg)",
+              letterSpacing: "-0.01em",
+            }}
+          >
             {current.hostname}
           </div>
           <div
             style={{
               marginTop: 6,
-              color: "var(--color-text-dim, #8a93a6)",
-              fontFamily: "ui-monospace, Menlo, monospace",
-              fontSize: 14,
-              letterSpacing: 1,
+              color: "var(--color-fg-2)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
             }}
           >
             {current.ip}
@@ -85,21 +94,21 @@ export function ConnectionRequestModal() {
         <div className="jury-buttons">
           <button
             type="button"
-            className="jury-btn jury-btn-red"
+            className="jury-btn"
             onClick={() => decide(false)}
             disabled={decidingId === current.clientId}
           >
-            <span className="pre">Deny</span>
-            Reject
+            <span className="pre">Esc</span>
+            Rechazar
           </button>
           <button
             type="button"
-            className="jury-btn jury-btn-blue"
+            className="jury-btn jury-btn-red"
             onClick={() => decide(true)}
             disabled={decidingId === current.clientId}
           >
-            <span className="pre">Grant</span>
-            Accept
+            <span className="pre">Enter</span>
+            Aceptar
           </button>
         </div>
       </div>

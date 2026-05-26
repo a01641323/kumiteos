@@ -119,28 +119,35 @@ export function LoginScreen() {
     <div className="auth-screen">
       <div className="auth-card">
         <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <h1>Karate Tournament</h1>
-          <p className="muted">Enter your 6-digit access code</p>
-          <input
-            autoFocus
-            value={code}
-            onChange={handleChange}
-            placeholder="000000"
-            maxLength={6}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            style={{
-              textAlign: "center",
-              letterSpacing: 10,
-              fontSize: 28,
-              width: "100%",
-              fontFamily: "ui-monospace, Menlo, monospace",
-            }}
-            disabled={submitting}
-          />
+          <h1>Kumite/OS</h1>
+          <p className="muted">Ingresa tu código de 6 dígitos</p>
+          <div className="code-slots-wrap">
+            <input
+              autoFocus
+              type="text"
+              value={code}
+              onChange={handleChange}
+              maxLength={6}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              className="code-slots-input"
+              aria-label="6-digit access code"
+              disabled={submitting}
+            />
+            <div className="code-slots" aria-hidden>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`code-slot ${code[i] ? "filled" : ""} ${i === code.length ? "active" : ""}`}
+                >
+                  {code[i] ?? ""}
+                </div>
+              ))}
+            </div>
+          </div>
           {error && <div className="auth-error">{error}</div>}
           <button type="submit" className="primary" disabled={submitting || code.length !== 6}>
-            {submitting ? "Activating…" : "Activate"}
+            {submitting ? "Activando…" : "Activar"}
           </button>
         </form>
 
@@ -160,7 +167,7 @@ export function LoginScreen() {
               }}
             >
               <div style={{ flex: 1, height: 1, background: "var(--border, #2a3142)" }} />
-              <span>or join a host</span>
+              <span>o únete a un host</span>
               <div style={{ flex: 1, height: 1, background: "var(--border, #2a3142)" }} />
             </div>
 
@@ -191,14 +198,14 @@ export function LoginScreen() {
                       </div>
                     </div>
                     <button type="button" className="primary" onClick={() => onJoinDiscovered(s)}>
-                      Connect
+                      Conectar
                     </button>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="muted small" style={{ margin: 0 }}>
-                Looking for hosts on your network…
+                Buscando hosts en tu red…
               </p>
             )}
 

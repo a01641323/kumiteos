@@ -9,23 +9,21 @@ export function JuryModal() {
   return (
     <div className="jury-overlay">
       <div className="jury-modal">
-        <h2>⚖ Jury Decision Required</h2>
-        <div className="jury-subtitle">
-          {blueName}  vs  {redName} — select winner
-        </div>
+        <h2>Decisión del jurado</h2>
+        <div className="jury-subtitle">Selecciona al ganador</div>
         <div className="jury-buttons">
           <button
             className="jury-btn jury-btn-blue"
             onClick={() => resolveJury(blueName)}
           >
-            <span className="pre">Blue</span>
+            <span className="pre">Azul</span>
             {blueName}
           </button>
           <button
             className="jury-btn jury-btn-red"
             onClick={() => resolveJury(redName)}
           >
-            <span className="pre">Red</span>
+            <span className="pre">Rojo</span>
             {redName}
           </button>
         </div>

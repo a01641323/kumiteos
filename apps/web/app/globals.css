@@ -1179,57 +1179,111 @@ body.match-kata .center { display: none !important; }
 
 .hidden { display: none !important; }
 
-/* ============ jury ============ */
+/* ============ modal (jury + connection-request share this shell) ============ */
 .jury-overlay {
   position: fixed; inset: 0;
-  background: rgba(0, 0, 0, 0.95);
+  background: color-mix(in oklab, var(--color-bg) 88%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center;
   z-index: 2000;
-  padding: 20px;
+  padding: 24px;
 }
 .jury-modal {
-  background: #0a0a0a;
-  border: 2px solid var(--color-gold);
-  border-radius: 14px;
-  padding: 36px 32px;
-  max-width: 720px;
+  position: relative;
+  background: var(--color-card);
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  padding: 32px 32px 28px;
+  max-width: 560px;
   width: 100%;
   text-align: center;
-  box-shadow: 0 0 80px rgba(255, 215, 0, 0.25);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+.jury-modal::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 10px;
+  padding: 1px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-accent) 55%, transparent),
+    transparent 50%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
 }
 .jury-modal h2 {
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--color-gold);
-  letter-spacing: 2px;
-  margin-bottom: 8px;
-  text-transform: uppercase;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-fg);
+  margin: 0 0 6px;
+  text-transform: none;
 }
-.jury-subtitle { color: var(--color-text-dim); font-size: 14px; margin-bottom: 26px; letter-spacing: 1px; }
-.jury-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.jury-btn {
-  padding: 28px 18px;
-  border: none;
-  border-radius: 10px;
-  font-size: 18px;
-  font-weight: 800;
-  cursor: pointer;
-  color: #fff;
+.jury-subtitle {
+  font-family: var(--font-mono);
+  color: var(--color-fg-2);
+  font-size: 11px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  transition: transform 0.12s, box-shadow 0.12s;
+  margin-bottom: 28px;
+}
+.jury-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.jury-btn {
+  padding: 22px 16px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 6px;
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  color: var(--color-fg);
+  background: var(--color-bg-2);
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
   line-height: 1.3;
 }
-.jury-btn-blue { background: linear-gradient(135deg, #002a80 0%, #001144 100%); }
-.jury-btn-red  { background: linear-gradient(135deg, #800000 0%, #330000 100%); }
-.jury-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.6); }
+.jury-btn:hover:not(:disabled) {
+  border-color: var(--color-line-stronger);
+  background: var(--color-bg-3);
+}
+.jury-btn:active:not(:disabled) { transform: translateY(1px); }
+.jury-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.jury-btn-blue {
+  border-color: color-mix(in oklab, #4f8cff 55%, var(--color-line-strong));
+  background: color-mix(in oklab, #4f8cff 14%, var(--color-bg-2));
+  color: var(--color-fg);
+}
+.jury-btn-blue:hover:not(:disabled) {
+  border-color: #4f8cff;
+  background: color-mix(in oklab, #4f8cff 22%, var(--color-bg-2));
+}
+.jury-btn-red {
+  border-color: color-mix(in oklab, var(--color-accent) 55%, var(--color-line-strong));
+  background: color-mix(in oklab, var(--color-accent) 14%, var(--color-bg-2));
+  color: var(--color-fg);
+}
+.jury-btn-red:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: color-mix(in oklab, var(--color-accent) 22%, var(--color-bg-2));
+}
 .jury-btn .pre {
   display: block;
-  font-size: 11px;
-  letter-spacing: 3px;
-  opacity: 0.7;
-  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-fg-2);
+  margin-bottom: 8px;
 }
+.jury-btn-blue .pre { color: color-mix(in oklab, #4f8cff 90%, var(--color-fg-2)); }
+.jury-btn-red  .pre { color: color-mix(in oklab, var(--color-accent) 90%, var(--color-fg-2)); }
 
 /* ============ public ============ */
 body.is-public #tabs { display: none; }
