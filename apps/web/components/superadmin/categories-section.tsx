@@ -7,6 +7,35 @@ import { useStore } from "@/lib/store";
 
 const ALL_BELTS: BeltColor[] = [...BELT_ORDER];
 
+const DEFAULT_DURATION = 120;
+
+/** Format seconds as m:ss for display. */
+function fmtDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/**
+ * Parse a duration the operator types. Accepts "m:ss", "mm:ss", or a
+ * plain number of seconds. Returns null when unparseable so the caller
+ * can ignore the keystroke.
+ */
+function parseDuration(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  if (t.includes(":")) {
+    const [mRaw, sRaw] = t.split(":");
+    const m = Number.parseInt(mRaw ?? "", 10);
+    const s = Number.parseInt(sRaw ?? "", 10);
+    if (!Number.isFinite(m) || !Number.isFinite(s) || s >= 60) return null;
+    return m * 60 + s;
+  }
+  const n = Number.parseInt(t, 10);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
 export function CategoriesSection() {
   const { state, addCategoryDef, updateCategoryDef, removeCategoryDef } = useStore();
   const [adding, setAdding] = useState(false);
@@ -30,6 +59,7 @@ export function CategoriesSection() {
             <th>Belts</th>
             <th>Min age</th>
             <th>Max age</th>
+            <th>Duration</th>
             <th>Matched competitors</th>
             <th></th>
           </tr>
@@ -45,7 +75,7 @@ export function CategoriesSection() {
             />
           ))}
           {state.tournament.categoryDefs.length === 0 ? (
-            <tr><td colSpan={6} className="muted">No categories yet — add one to get started.</td></tr>
+            <tr><td colSpan={7} className="muted">No categories yet — add one to get started.</td></tr>
           ) : null}
         </tbody>
       </table>
@@ -115,6 +145,12 @@ function CategoryRow({
           }}
         />
       </td>
+      <td>
+        <DurationInput
+          value={def.matchDurationSeconds}
+          onCommit={(seconds) => onChange({ ...def, matchDurationSeconds: seconds })}
+        />
+      </td>
       <td>{competitors}</td>
       <td className="right">
         <button className="danger" onClick={onDelete}>Delete</button>
@@ -134,6 +170,7 @@ function AddCategoryRow({
   const [belts, setBelts] = useState<BeltColor[]>([]);
   const [minAge, setMinAge] = useState(4);
   const [maxAge, setMaxAge] = useState<number | null>(99);
+  const [duration, setDuration] = useState<number | undefined>(undefined);
 
   return (
     <div className="row" style={{ marginTop: 16, gap: 8 }}>
@@ -165,6 +202,7 @@ function AddCategoryRow({
           setMaxAge(raw === "" ? null : Number(raw));
         }}
       />
+      <DurationInput value={duration} onCommit={setDuration} />
       <button
         className="primary"
         onClick={() => {
@@ -175,6 +213,7 @@ function AddCategoryRow({
             belts,
             minAge,
             maxAge,
+            matchDurationSeconds: duration,
           });
         }}
       >
@@ -182,6 +221,48 @@ function AddCategoryRow({
       </button>
       <button onClick={onCancel}>Cancel</button>
     </div>
+  );
+}
+
+/**
+ * m:ss duration field. Keeps an internal text buffer so the operator can
+ * type freely; commits the parsed seconds on blur (or Enter). Empty
+ * commits as `undefined` → falls back to the tournament default.
+ */
+function DurationInput({
+  value,
+  onCommit,
+}: {
+  value: number | undefined;
+  onCommit: (seconds: number | undefined) => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const display = text ?? (value != null ? fmtDuration(value) : "");
+  const commit = () => {
+    if (text === null) return;
+    const t = text.trim();
+    if (t === "") {
+      onCommit(undefined);
+    } else {
+      const parsed = parseDuration(t);
+      if (parsed != null && parsed >= 10) onCommit(parsed);
+    }
+    setText(null);
+  };
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      placeholder={fmtDuration(DEFAULT_DURATION)}
+      value={display}
+      style={{ width: 70 }}
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+    />
   );
 }
 

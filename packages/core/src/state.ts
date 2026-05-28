@@ -511,6 +511,23 @@ export function captureSb(m: MatchState): MatchResult {
   };
 }
 
+/**
+ * Resolve the combat match duration (seconds) for a category: the
+ * category's own `matchDurationSeconds` when set, else the
+ * tournament-wide default. Used when loading a match to the scoreboard.
+ */
+export function resolveCategoryDuration(
+  state: AppState,
+  categoryId: string | null | undefined,
+): number {
+  if (categoryId) {
+    const def = state.tournament.categoryDefs.find((d) => d.id === categoryId);
+    const d = def?.matchDurationSeconds;
+    if (typeof d === "number" && Number.isFinite(d) && d > 0) return d;
+  }
+  return state.settings.defaultDuration;
+}
+
 export function resetLiveScoreboard(state: AppState): void {
   state.match.blueName = "";
   state.match.redName = "";
@@ -562,8 +579,9 @@ export function loadMatchToScoreboardImpl(
   state.match.tieBreakReason = null;
   state.match.discipline = ref.discipline;
   state.match.activeMatchRef = ref;
-  state.timer.duration = state.settings.defaultDuration;
-  state.timer.remaining = state.settings.defaultDuration;
+  const dur = resolveCategoryDuration(state, ref.categoryId);
+  state.timer.duration = dur;
+  state.timer.remaining = dur;
   state.timer.running = false;
   state.timer.finished = false;
   return true;

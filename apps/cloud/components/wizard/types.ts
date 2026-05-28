@@ -50,6 +50,8 @@ export interface CategoryDef {
   belts: BeltColor[];
   minAge: number;
   maxAge: number | null;
+  /** Combat match duration in seconds (default 120 = 2:00 when unset). */
+  matchDurationSeconds?: number;
 }
 
 export interface ParticipantRow {

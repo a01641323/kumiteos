@@ -19,7 +19,13 @@ function newId(): string {
 }
 
 function emptyRow(): CategoryDef {
-  return { id: newId(), name: "", belts: ["white"], minAge: 6, maxAge: null };
+  return { id: newId(), name: "", belts: ["white"], minAge: 6, maxAge: null, matchDurationSeconds: 120 };
+}
+
+function fmtMMSS(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 export function StepCategories({ value, onChange, disabled }: Props) {
@@ -73,6 +79,7 @@ export function StepCategories({ value, onChange, disabled }: Props) {
               <th>Nombre</th>
               <th>Cinturones</th>
               <th>Edad</th>
+              <th>Duración</th>
               <th></th>
             </tr>
           </thead>
@@ -82,6 +89,7 @@ export function StepCategories({ value, onChange, disabled }: Props) {
                 <td>{c.name}</td>
                 <td className="muted small">{c.belts.map((b) => BELT_LABEL[b]).join(", ")}</td>
                 <td className="mono small">{c.minAge}{c.maxAge ? `–${c.maxAge}` : "+"}</td>
+                <td className="mono small">{fmtMMSS(c.matchDurationSeconds ?? 120)}</td>
                 <td style={{ textAlign: "right" }}>
                   {!disabled && (
                     <button type="button" className="btn-row" onClick={() => remove(c.id)}>Quitar</button>
@@ -141,7 +149,7 @@ export function StepCategories({ value, onChange, disabled }: Props) {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
             <label className="field">
               <span className="field-label">Edad mínima</span>
               <NumberField
@@ -162,6 +170,16 @@ export function StepCategories({ value, onChange, disabled }: Props) {
                 onNull={() => patchDraft("maxAge", null)}
                 onChange={(v) => patchDraft("maxAge", v)}
                 aria-label="Edad máxima"
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Duración del combate (seg)</span>
+              <NumberField
+                value={draft.matchDurationSeconds ?? 120}
+                defaultValue={120}
+                min={10} max={600}
+                onChange={(v) => patchDraft("matchDurationSeconds", v)}
+                aria-label="Duración del combate en segundos"
               />
             </label>
           </div>

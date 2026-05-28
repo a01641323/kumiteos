@@ -138,6 +138,13 @@ export interface CategoryDef {
   belts: BeltColor[];
   minAge: number;
   maxAge: number | null;
+  /**
+   * Match (combat) duration in SECONDS for this category. Optional —
+   * when unset, matches use the tournament-wide default
+   * (`settings.defaultDuration`, 120s = 2:00). Lets organizers give,
+   * e.g., younger categories shorter bouts.
+   */
+  matchDurationSeconds?: number;
 }
 
 export interface TournamentSettings {
