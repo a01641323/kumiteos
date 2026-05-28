@@ -170,11 +170,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [guestSession, setGuestSession] = useState<GuestSessionInfo | null>(null);
   const isKioskRef = useRef(false);
   const [status, setStatus] = useState<AuthStatus>({ kind: "loading" });
+  // Stays false until the async bootstrap below finishes. Until then the
+  // status effect must NOT fall through to the unlicensed→anonymous
+  // default, or the LoginScreen ("access code window") flashes for a
+  // frame on every refresh before the real license hydrates.
+  const [booted, setBooted] = useState(false);
 
   // ------- Bootstrap -------
   useEffect(() => {
     let mounted = true;
     async function bootstrap() {
+      try {
+        await bootstrapInner();
+      } finally {
+        if (mounted) setBooted(true);
+      }
+    }
+    async function bootstrapInner() {
       // Kiosk session — same path as before.
       const kiosk = (typeof window !== "undefined" ? window.__KARATE__?.kioskSession : null);
       if (kiosk) {
@@ -318,8 +330,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       return;
     }
+    // Hold on "loading" until bootstrap has hydrated the real license —
+    // prevents the LoginScreen from flashing on refresh.
+    if (!booted) {
+      setStatus({ kind: "loading" });
+      return;
+    }
     setStatus(statusFromState(licenseState, token));
-  }, [licenseState, token, guestSession]);
+  }, [licenseState, token, guestSession, booted]);
 
   // Heartbeat — local + cloud.
   //
