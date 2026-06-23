@@ -193,6 +193,8 @@ export interface EngineState {
   nextMatchPerArea: Record<number, NextMatchHint | null>;
   /** Subcategory ids waiting for an area, ordered by priority. */
   assignmentQueue: string[];
+  /** matchId → areaIndex relocation overrides (single-match reroutes). */
+  matchAreaOverrides: Record<string, number>;
   /** Last engine tick timestamp (Unix ms). */
   lastTickTs: number;
 }

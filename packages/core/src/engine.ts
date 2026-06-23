@@ -205,8 +205,30 @@ export function buildInitialEngineState(): EngineState {
     subcategories: {},
     nextMatchPerArea: {},
     assignmentQueue: [],
+    matchAreaOverrides: {},
     lastTickTs: 0,
   };
+}
+
+/** Area that owns a match: its override if present, else its sub's assignment. */
+export function areaForMatch(
+  eng: EngineState,
+  areaAssignments: Record<string, number>,
+  matchId: string,
+  subcategoryId: string,
+): number | null {
+  const override = eng.matchAreaOverrides[matchId];
+  if (typeof override === "number") return override;
+  const assigned = areaAssignments[subcategoryId];
+  return typeof assigned === "number" ? assigned : null;
+}
+
+/** Drop overrides whose match is completed or no longer exists. */
+export function pruneOverrides(eng: EngineState): void {
+  for (const id of Object.keys(eng.matchAreaOverrides)) {
+    const m = eng.matches[id];
+    if (!m || m.status === "COMPLETED") delete eng.matchAreaOverrides[id];
+  }
 }
 
 /** Ensure `state.engine` exists and `engine.areas` matches `areaCount`. */
@@ -215,6 +237,7 @@ export function ensureEngineState(state: AppState): EngineState {
   const eng = state.engine;
   // Backfill any config fields missing from older persisted state.
   eng.config = { ...DEFAULT_ENGINE_CONFIG, ...eng.config };
+  if (!eng.matchAreaOverrides) eng.matchAreaOverrides = {};
   const areaCount = state.tournament.settings.areaCount;
   if (eng.areas.length !== areaCount) {
     const next: AreaRuntime[] = [];

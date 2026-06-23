@@ -94,7 +94,7 @@ describe("throughput + congestion", () => {
   });
 });
 
-import { stampReadySince } from "./engine";
+import { stampReadySince, areaForMatch, pruneOverrides, buildInitialEngineState } from "./engine";
 
 describe("readySince stamping", () => {
   it("stamps now when a match first becomes READY", () => {
@@ -106,5 +106,26 @@ describe("readySince stamping", () => {
   it("clears the stamp when not READY", () => {
     expect(stampReadySince("IN_PROGRESS", 500, 900)).toBeNull();
     expect(stampReadySince("PENDING", 500, 900)).toBeNull();
+  });
+});
+
+describe("match area overrides", () => {
+  it("returns the override area when set, else the subcategory assignment", () => {
+    const eng = buildInitialEngineState();
+    eng.matchAreaOverrides = { "m-overridden": 2 };
+    const assignments = { "sub-A": 0 };
+    expect(areaForMatch(eng, assignments, "m-overridden", "sub-A")).toBe(2);
+    expect(areaForMatch(eng, assignments, "m-plain", "sub-A")).toBe(0);
+    expect(areaForMatch(eng, assignments, "m-plain", "sub-unknown")).toBeNull();
+  });
+  it("prunes overrides for completed or missing matches", () => {
+    const eng = buildInitialEngineState();
+    eng.matchAreaOverrides = { "m-done": 1, "m-live": 2, "m-gone": 3 };
+    eng.matches = {
+      "m-done": { id: "m-done", status: "COMPLETED" } as any,
+      "m-live": { id: "m-live", status: "READY" } as any,
+    };
+    pruneOverrides(eng);
+    expect(eng.matchAreaOverrides).toEqual({ "m-live": 2 });
   });
 });
