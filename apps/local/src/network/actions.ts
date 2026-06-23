@@ -233,6 +233,12 @@ const handlers: Record<string, Handler> = {
     // Redistribute: rebuild assignments so subcategories pinned to a
     // newly-disabled area get re-bin-packed onto the survivors.
     if (disabled) {
+      // Clear the disabled area's frozen NEXT so the called-up match is
+      // re-picked by whichever area now owns its subcategory. IN_PROGRESS
+      // matches are never touched here.
+      if (s.engine?.nextMatchPerArea) {
+        s.engine.nextMatchPerArea[areaIndex] = null;
+      }
       const keepAssignments: any = {};
       for (const [subId, ai] of Object.entries(s.tournament.areaAssignments ?? {})) {
         if (typeof ai === "number" && ai !== areaIndex) keepAssignments[subId] = ai;
