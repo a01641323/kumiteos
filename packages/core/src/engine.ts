@@ -732,9 +732,14 @@ function scorePair(ctx: PairScoreContext, area: AreaRuntime, m: ReadyMatchView):
   // Adjacency to where competitors were last seen.
   const compA = ctx.eng.competitors[m.a];
   const compB = ctx.eng.competitors[m.b];
+  const neighbors = getRankedNeighbors(
+    area.index,
+    ctx.state.tournament.settings.areaCount,
+    ctx.state.tournament.settings.areaAdjacency,
+  );
   for (const c of [compA, compB]) {
     if (!c || c.lastAreaIndex === null) continue;
-    if (Math.abs(c.lastAreaIndex - area.index) === 1) {
+    if (neighbors.includes(c.lastAreaIndex)) {
       score += cfg.scoreAdjacencyBonus;
       break;
     }
