@@ -4,6 +4,12 @@ import { ensureEngineState } from "./engine";
 import type { AppState } from "./types";
 import { buildInitialState } from "./state";
 import { getRankedNeighbors } from "./areas";
+import {
+  computeThroughput,
+  computeGlobalAverageThroughput,
+  isCongested,
+} from "./engine";
+import type { AreaRuntime } from "./engine-types";
 
 describe("engine test harness", () => {
   it("loads engine defaults", () => {
@@ -42,5 +48,48 @@ describe("getRankedNeighbors", () => {
     const adjacency = [[2, 1], [0], [0, 1], [99]];
     expect(getRankedNeighbors(0, 4, adjacency)).toEqual([2, 1]);
     expect(getRankedNeighbors(3, 4, adjacency)).toEqual([]); // 99 out of range
+  });
+});
+
+function area(partial: Partial<AreaRuntime>): AreaRuntime {
+  return {
+    index: 0, name: "A", status: "ACTIVA", assignedSubcategories: [],
+    matchHistory: [], firstMatchAssignedTs: null, throughput: null,
+    ...partial,
+  };
+}
+
+describe("throughput + congestion", () => {
+  const NOW = 1_000_000;
+  it("computes matches per minute from history length and start time", () => {
+    const a = area({
+      firstMatchAssignedTs: NOW - 10 * 60_000,
+      matchHistory: Array(5).fill({ matchId: "m", startTs: 0, endTs: 0 }),
+    });
+    expect(computeThroughput(a, NOW)).toBeCloseTo(0.5, 5); // 5 matches / 10 min
+  });
+  it("returns null before the area has started", () => {
+    expect(computeThroughput(area({ firstMatchAssignedTs: null }), NOW)).toBeNull();
+  });
+  it("averages only past-warmup areas", () => {
+    const fast = area({
+      index: 0, firstMatchAssignedTs: NOW - 10 * 60_000,
+      matchHistory: Array(10).fill({ matchId: "m", startTs: 0, endTs: 0 }),
+    });
+    const slow = area({
+      index: 1, firstMatchAssignedTs: NOW - 10 * 60_000,
+      matchHistory: Array(4).fill({ matchId: "m", startTs: 0, endTs: 0 }),
+    });
+    const warming = area({
+      index: 2, firstMatchAssignedTs: NOW - 60_000,
+      matchHistory: [{ matchId: "m", startTs: 0, endTs: 0 }], // 1 < warmup(2)
+    });
+    const avg = computeGlobalAverageThroughput([fast, slow, warming], NOW, 2);
+    expect(avg).toBeCloseTo(0.7, 5); // (1.0 + 0.4) / 2, warming excluded
+  });
+  it("flags an area below the threshold fraction of average", () => {
+    // avg 0.7, threshold 0.175 → cutoff 0.5775. slow=0.4 congested, fast=1.0 not.
+    expect(isCongested(0.4, 0.7, 0.175)).toBe(true);
+    expect(isCongested(1.0, 0.7, 0.175)).toBe(false);
   });
 });

@@ -119,8 +119,8 @@ export interface AreaRuntime {
   matchHistory: AreaMatchHistoryEntry[];
   /** Unix ms when the first match was assigned (delay calc start). */
   firstMatchAssignedTs: number | null;
-  /** Cached last performanceRatio for diagnostics + UI. */
-  performanceRatio: number | null;
+  /** Cached last throughput (matches/minute) for diagnostics + UI. */
+  throughput: number | null;
 }
 
 // =============================================================

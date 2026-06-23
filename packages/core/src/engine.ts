@@ -218,7 +218,7 @@ export function ensureEngineState(state: AppState): EngineState {
           assignedSubcategories: [],
           matchHistory: [],
           firstMatchAssignedTs: null,
-          performanceRatio: null,
+          throughput: null,
         }
       );
     }
@@ -339,9 +339,12 @@ export function hydrateEngineFromBracket(state: AppState, now: number): EngineSt
     refreshCompetitorStatus(c, eng, now);
   }
 
-  // Refresh area statuses (delay detection).
+  // Refresh area statuses using relative throughput vs the global average.
+  const globalAvg = computeGlobalAverageThroughput(
+    eng.areas, now, eng.config.throughputWarmupMatches,
+  );
   for (const a of eng.areas) {
-    a.status = computeAreaStatus(a, eng.config, now);
+    a.status = computeAreaStatus(a, eng.config, now, globalAvg);
   }
 
   // Refresh per-subcategory pace.
@@ -504,27 +507,64 @@ function refreshCompetitorStatus(
 }
 
 // =============================================================
-// Delay detection.
+// Throughput + relative congestion.
 // =============================================================
+
+/** Matches completed per minute since the area's first assignment, or null. */
+export function computeThroughput(area: AreaRuntime, now: number): number | null {
+  if (!area.firstMatchAssignedTs) return null;
+  const minutes = Math.max(1 / 60, (now - area.firstMatchAssignedTs) / 60_000);
+  return area.matchHistory.length / minutes;
+}
+
+/** Mean throughput across areas that are past warmup, or 0 if none qualify. */
+export function computeGlobalAverageThroughput(
+  areas: AreaRuntime[],
+  now: number,
+  warmupMatches: number,
+): number {
+  let sum = 0;
+  let n = 0;
+  for (const a of areas) {
+    if (a.matchHistory.length < warmupMatches) continue;
+    const t = computeThroughput(a, now);
+    if (t === null) continue;
+    sum += t;
+    n += 1;
+  }
+  return n === 0 ? 0 : sum / n;
+}
+
+/** True when `throughput` is more than `thresholdPct` below `globalAvg`. */
+export function isCongested(
+  throughput: number,
+  globalAvg: number,
+  thresholdPct: number,
+): boolean {
+  if (globalAvg <= 0) return false;
+  return throughput < globalAvg * (1 - thresholdPct);
+}
 
 export function computeAreaStatus(
   area: AreaRuntime,
   config: EngineConfig,
-  now: number
+  now: number,
+  globalAvgThroughput: number,
 ): AreaStatus {
-  // Area with no first-match-yet is LIBRE (we treat freshly-vacated as LIBRE
-  // until a new assignment lands).
-  if (!area.firstMatchAssignedTs) {
-    area.performanceRatio = null;
+  const t = computeThroughput(area, now);
+  area.throughput = t;
+  if (t === null) {
+    // Not started yet.
     return area.assignedSubcategories.length === 0 ? "LIBRE" : "ACTIVA";
   }
-  const elapsed = Math.max(1, (now - area.firstMatchAssignedTs) / 1000);
-  const expected = elapsed / Math.max(1, config.avgMatchDurationSeconds);
-  const completed = area.matchHistory.length;
-  const ratio = completed / Math.max(0.0001, expected);
-  area.performanceRatio = ratio;
-  if (area.assignedSubcategories.length === 0 && completed === 0) return "LIBRE";
-  return ratio >= config.delayThreshold ? "ACTIVA" : "RETRASADA";
+  if (area.assignedSubcategories.length === 0 && area.matchHistory.length === 0) {
+    return "LIBRE";
+  }
+  // Warming-up areas are never flagged congested.
+  if (area.matchHistory.length < config.throughputWarmupMatches) return "ACTIVA";
+  return isCongested(t, globalAvgThroughput, config.congestionThresholdPct)
+    ? "RETRASADA"
+    : "ACTIVA";
 }
 
 // =============================================================
