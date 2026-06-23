@@ -836,6 +836,10 @@ export function runEngineTick(state: AppState, opts: EngineTickOptions = {}): En
     let best: { match: ReadyMatchView; score: number } | null = null;
     for (const m of ready) {
       if (usedMatchIds.has(m.runtime.id)) continue;
+      // Respect relocation overrides: a match overridden elsewhere is not a
+      // candidate here; one overridden to this area is.
+      const ov = eng.matchAreaOverrides[m.runtime.id];
+      if (typeof ov === "number" && ov !== area.index) continue;
       const sc = scorePair(ctx, area, m);
       if (!best || sc > best.score) best = { match: m, score: sc };
     }
@@ -851,6 +855,9 @@ export function runEngineTick(state: AppState, opts: EngineTickOptions = {}): En
       };
     }
   }
+
+  pruneOverrides(eng);
+  runCongestionInterventions(state, eng, ready, now);
 
   return eng;
 }

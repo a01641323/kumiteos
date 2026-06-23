@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_ENGINE_CONFIG } from "./engine-types";
-import { ensureEngineState } from "./engine";
+import { ensureEngineState, runEngineTick, recordMatchStart, recordMatchEnd } from "./engine";
 import type { AppState } from "./types";
-import { buildInitialState } from "./state";
+import { buildInitialState, replaceParticipants, setAreaCount, startCategory } from "./state";
+import { generateMockTournament } from "./mock-tournament";
 import { getRankedNeighbors } from "./areas";
 import {
   computeThroughput,
@@ -175,5 +176,55 @@ describe("pickRelocationDestination", () => {
       canReceive: () => false,
     });
     expect(dest).toBeNull();
+  });
+});
+
+describe("runEngineTick integration", () => {
+  function startedMockState(areaCount = 2): AppState {
+    const state = buildInitialState() as AppState;
+    const mock = generateMockTournament();
+    state.tournament.categoryDefs = mock.categoryDefs;
+    // replaceParticipants expects participants without ids; strip them.
+    replaceParticipants(state, mock.participants.map(({ id, ...rest }) => rest));
+    setAreaCount(state, areaCount);
+    for (const catId of state.tournament.categoryOrder) startCategory(state, catId);
+    return state;
+  }
+
+  it("populates NEXT for areas and has READY matches after start", () => {
+    const state = startedMockState();
+    const eng = runEngineTick(state, { now: 1_000_000 });
+    const pinned = Object.values(eng.nextMatchPerArea).filter(Boolean).length;
+    expect(pinned).toBeGreaterThan(0);
+  });
+
+  it("is idempotent: a second no-op tick keeps the same NEXT pins", () => {
+    const state = startedMockState();
+    const t0 = 1_000_000;
+    const eng1 = runEngineTick(state, { now: t0 });
+    const snapshot = JSON.stringify(eng1.nextMatchPerArea);
+    const eng2 = runEngineTick(state, { now: t0 });
+    expect(JSON.stringify(eng2.nextMatchPerArea)).toBe(snapshot);
+  });
+
+  it("keeps a frozen NEXT pinned across a later tick", () => {
+    const state = startedMockState();
+    const t0 = 1_000_000;
+    const eng = runEngineTick(state, { now: t0 });
+    const idx = Object.keys(eng.nextMatchPerArea).find(
+      (k) => eng.nextMatchPerArea[Number(k)],
+    );
+    expect(idx).toBeDefined();
+    const pinned = eng.nextMatchPerArea[Number(idx)]!.matchId;
+    const eng2 = runEngineTick(state, { now: t0 + 30_000 });
+    expect(eng2.nextMatchPerArea[Number(idx)]?.matchId).toBe(pinned);
+  });
+
+  it("prunes an override whose match no longer exists, on the next tick", () => {
+    const state = startedMockState();
+    const eng = runEngineTick(state, { now: 1_000_000 });
+    eng.matchAreaOverrides["match-that-does-not-exist"] = 1;
+    runEngineTick(state, { now: 1_001_000 });
+    expect(eng.matchAreaOverrides["match-that-does-not-exist"]).toBeUndefined();
   });
 });
