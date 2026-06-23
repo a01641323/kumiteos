@@ -154,6 +154,11 @@ export interface TournamentSettings {
   areaCount: number;
   /** Auto-finish a combat match when one side leads by this many points (0 = disabled). */
   pointDifference?: number;
+  /**
+   * Optional venue layout: for each area index, neighbor indices ranked
+   * nearest-first. When unset, neighbors default to a linear chain (|i-j|).
+   */
+  areaAdjacency?: number[][];
 }
 
 export interface MatchPathStd {

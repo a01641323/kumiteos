@@ -166,3 +166,29 @@ export function categoryHasArea(
 ): boolean {
   return category.subcategories.some((s) => assignments[s.id] === areaIndex);
 }
+
+/**
+ * Neighbor area indices for `areaIndex`, ranked nearest-first.
+ * With an explicit `adjacency` table, returns its ranked list filtered to
+ * valid, non-self indices. Without one, falls back to a linear chain ordered
+ * by absolute index distance (ties: lower index first).
+ */
+export function getRankedNeighbors(
+  areaIndex: number,
+  areaCount: number,
+  adjacency: number[][] | undefined,
+): number[] {
+  const explicit = adjacency?.[areaIndex];
+  if (explicit) {
+    return explicit.filter(
+      (i) => Number.isInteger(i) && i >= 0 && i < areaCount && i !== areaIndex,
+    );
+  }
+  const others: number[] = [];
+  for (let i = 0; i < areaCount; i++) if (i !== areaIndex) others.push(i);
+  return others.sort((a, b) => {
+    const da = Math.abs(a - areaIndex);
+    const db = Math.abs(b - areaIndex);
+    return da - db || a - b;
+  });
+}
