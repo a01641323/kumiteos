@@ -93,3 +93,18 @@ describe("throughput + congestion", () => {
     expect(isCongested(1.0, 0.7, 0.175)).toBe(false);
   });
 });
+
+import { stampReadySince } from "./engine";
+
+describe("readySince stamping", () => {
+  it("stamps now when a match first becomes READY", () => {
+    expect(stampReadySince("READY", null, 500)).toBe(500);
+  });
+  it("preserves the original stamp while still READY", () => {
+    expect(stampReadySince("READY", 500, 900)).toBe(500);
+  });
+  it("clears the stamp when not READY", () => {
+    expect(stampReadySince("IN_PROGRESS", 500, 900)).toBeNull();
+    expect(stampReadySince("PENDING", 500, 900)).toBeNull();
+  });
+});

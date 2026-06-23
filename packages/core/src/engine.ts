@@ -66,6 +66,16 @@ export function matchIdFromRef(ref: ActiveMatchRef): string {
   }
 }
 
+/** Stamp/preserve/clear the READY-since timestamp for a match. */
+export function stampReadySince(
+  status: MatchStatus,
+  existing: number | null | undefined,
+  now: number,
+): number | null {
+  if (status !== "READY") return null;
+  return existing ?? now;
+}
+
 export function refFromMatchId(id: string): ActiveMatchRef | null {
   const parts = id.split("::");
   if (parts.length < 4) return null;
@@ -327,6 +337,7 @@ export function hydrateEngineFromBracket(state: AppState, now: number): EngineSt
       assignedAreaIndex: existing?.assignedAreaIndex ?? null,
       startTs: existing?.startTs ?? null,
       endTs: existing?.endTs ?? null,
+      readySince: stampReadySince(status, existing?.readySince, now),
       isBye: r.isBye,
     };
   }

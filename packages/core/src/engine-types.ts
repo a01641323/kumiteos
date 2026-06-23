@@ -46,6 +46,8 @@ export interface MatchRuntime {
   assignedAreaIndex: number | null;
   startTs: number | null;
   endTs: number | null;
+  /** Unix ms when this match first became READY (for longest-waiting). */
+  readySince: number | null;
   /** A BYE auto-advances and never enters the engine. */
   isBye: boolean;
 }
