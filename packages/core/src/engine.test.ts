@@ -143,3 +143,37 @@ describe("frozen NEXT validation", () => {
     expect(isNextHintStillValid({ ready: true, restOk: true, kataOk: true, absent: true })).toBe(false);
   });
 });
+
+import { pickRelocationDestination } from "./engine";
+
+describe("pickRelocationDestination", () => {
+  const areaCount = 4;
+  it("returns the nearest non-disabled, non-congested neighbor that can receive", () => {
+    const dest = pickRelocationDestination({
+      sourceIndex: 1,
+      areaCount,
+      adjacency: undefined, // linear: from 1 → [0, 2, 3]
+      isDisabled: (i) => i === 0,
+      isCongested: (i) => false,
+      canReceive: (i) => true,
+    });
+    expect(dest).toBe(2); // 0 disabled → next nearest is 2
+  });
+  it("skips congested neighbors", () => {
+    const dest = pickRelocationDestination({
+      sourceIndex: 1, areaCount, adjacency: undefined,
+      isDisabled: () => false,
+      isCongested: (i) => i === 0 || i === 2,
+      canReceive: () => true,
+    });
+    expect(dest).toBe(3);
+  });
+  it("returns null when no neighbor can legally receive", () => {
+    const dest = pickRelocationDestination({
+      sourceIndex: 1, areaCount, adjacency: undefined,
+      isDisabled: () => false, isCongested: () => false,
+      canReceive: () => false,
+    });
+    expect(dest).toBeNull();
+  });
+});

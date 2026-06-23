@@ -43,7 +43,7 @@ import {
   DEFAULT_ENGINE_CONFIG,
 } from "./engine-types";
 import { getSubcategory } from "./state";
-import { areaLabel, estimatedMatchCount } from "./areas";
+import { areaLabel, estimatedMatchCount, getRankedNeighbors } from "./areas";
 
 // =============================================================
 // Match ID encoding — stable across engine ticks.
@@ -387,78 +387,7 @@ export function hydrateEngineFromBracket(state: AppState, now: number): EngineSt
     computeSubcategoryPace(sub, eng, state, now);
   }
 
-  // Auto-push: any sub now in the "behind" tier with no IN_PROGRESS matches
-  // gets moved to the area with the lightest remaining LPT load — provided
-  // the destination is materially lighter (so we don't thrash on noise).
-  redistributeBehindSubcategories(state, eng);
-
   return eng;
-}
-
-function redistributeBehindSubcategories(state: AppState, eng: EngineState): void {
-  const areaCount = state.tournament.settings.areaCount;
-  if (areaCount <= 1) return;
-
-  // Compute remaining-match load per area from current bracket state.
-  const loads = new Array(areaCount).fill(0) as number[];
-  const subById = new Map<string, import("./types").Subcategory>();
-  for (const catId of state.tournament.categoryOrder) {
-    const cat = state.tournament.categories[catId];
-    if (!cat) continue;
-    for (const sub of cat.subcategories) {
-      subById.set(sub.id, sub);
-      const areaIdx = state.tournament.areaAssignments[sub.id];
-      if (typeof areaIdx === "number" && areaIdx >= 0 && areaIdx < areaCount) {
-        const total = estimatedMatchCount(sub);
-        const completed = countCompletedForSub(eng, sub.id);
-        loads[areaIdx] += Math.max(0, total - completed);
-      }
-    }
-  }
-
-  for (const [subId, runtime] of Object.entries(eng.subcategories)) {
-    if (runtime.paceTier !== "behind") continue;
-    if (hasInProgressMatch(eng, subId)) continue;
-    const currentArea = state.tournament.areaAssignments[subId];
-    if (typeof currentArea !== "number") continue;
-    const sub = subById.get(subId);
-    if (!sub) continue;
-    const remaining = Math.max(0, estimatedMatchCount(sub) - countCompletedForSub(eng, subId));
-    if (remaining <= 0) continue;
-
-    // Pick the lightest OTHER area.
-    let best = -1;
-    let bestLoad = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < areaCount; i++) {
-      if (i === currentArea) continue;
-      if (loads[i]! < bestLoad) {
-        bestLoad = loads[i]!;
-        best = i;
-      }
-    }
-    if (best < 0) continue;
-    // Require materially-lighter destination (>= 2 fewer matches) to avoid
-    // bouncing on tiny load deltas.
-    if (bestLoad + 2 > loads[currentArea]!) continue;
-    state.tournament.areaAssignments[subId] = best;
-    loads[currentArea] -= remaining;
-    loads[best] += remaining;
-  }
-}
-
-function countCompletedForSub(eng: EngineState, subId: string): number {
-  let n = 0;
-  for (const m of Object.values(eng.matches)) {
-    if (m.ref.subcategoryId === subId && m.status === "COMPLETED") n++;
-  }
-  return n;
-}
-
-function hasInProgressMatch(eng: EngineState, subId: string): boolean {
-  for (const m of Object.values(eng.matches)) {
-    if (m.ref.subcategoryId === subId && m.status === "IN_PROGRESS") return true;
-  }
-  return false;
 }
 
 /**
@@ -670,6 +599,92 @@ function kataOrderingOk(
     if (pending > 0) return false;
   }
   return true;
+}
+
+/** First nearest neighbor that is enabled, not congested, and can receive. */
+export function pickRelocationDestination(args: {
+  sourceIndex: number;
+  areaCount: number;
+  adjacency: number[][] | undefined;
+  isDisabled: (areaIndex: number) => boolean;
+  isCongested: (areaIndex: number) => boolean;
+  canReceive: (areaIndex: number) => boolean;
+}): number | null {
+  const neighbors = getRankedNeighbors(args.sourceIndex, args.areaCount, args.adjacency);
+  for (const n of neighbors) {
+    if (args.isDisabled(n)) continue;
+    if (args.isCongested(n)) continue;
+    if (!args.canReceive(n)) continue;
+    return n;
+  }
+  return null;
+}
+
+/**
+ * Ready matches owned by `areaIndex` (by override or assignment), excluding the
+ * area's frozen NEXT and any pinned NEXT elsewhere, sorted longest-waiting first.
+ */
+export function pendingQueueForArea(
+  eng: EngineState,
+  areaAssignments: Record<string, number>,
+  ready: ReadyMatchView[],
+  areaIndex: number,
+): ReadyMatchView[] {
+  const frozenHere = eng.nextMatchPerArea[areaIndex]?.matchId ?? null;
+  const out = ready.filter((rm) => {
+    if (rm.runtime.id === frozenHere) return false;
+    return areaForMatch(eng, areaAssignments, rm.runtime.id, rm.ref.subcategoryId) === areaIndex;
+  });
+  out.sort((a, b) => (a.runtime.readySince ?? 0) - (b.runtime.readySince ?? 0));
+  return out;
+}
+
+/**
+ * For each congested area (most congested first), relocate its longest-waiting
+ * pending match to the nearest non-congested neighbor that can legally receive.
+ * One match per area per tick. Writes to eng.matchAreaOverrides.
+ */
+export function runCongestionInterventions(
+  state: AppState,
+  eng: EngineState,
+  ready: ReadyMatchView[],
+  now: number,
+): void {
+  const areaCount = state.tournament.settings.areaCount;
+  if (areaCount <= 1) return;
+  const assignments = state.tournament.areaAssignments ?? {};
+  const disabled = new Set(state.tournament.disabledAreas ?? []);
+  const adjacency = state.tournament.settings.areaAdjacency;
+  const cfg = eng.config;
+
+  const globalAvg = computeGlobalAverageThroughput(eng.areas, now, cfg.throughputWarmupMatches);
+
+  const congestedAreas = eng.areas
+    .filter((a) => a.status === "RETRASADA" && !disabled.has(a.index))
+    .map((a) => ({ area: a, t: computeThroughput(a, now) ?? Infinity }))
+    .sort((x, y) => x.t - y.t); // slowest first
+
+  const isAreaCongested = (i: number) => eng.areas[i]?.status === "RETRASADA";
+
+  for (const { area } of congestedAreas) {
+    const queue = pendingQueueForArea(eng, assignments, ready, area.index);
+    if (queue.length < cfg.minQueueDepthForIntervention) continue;
+    const candidate = queue[0];
+
+    const dest = pickRelocationDestination({
+      sourceIndex: area.index,
+      areaCount,
+      adjacency,
+      isDisabled: (i) => disabled.has(i),
+      isCongested: isAreaCongested,
+      // Destination must still satisfy the hard constraints for this match.
+      canReceive: () =>
+        restOk(eng, candidate.a, candidate.b, now) &&
+        kataOrderingOk(state, eng, candidate.ref.subcategoryId, candidate.ref.discipline, candidate.a, candidate.b),
+    });
+    if (dest === null) continue;
+    eng.matchAreaOverrides[candidate.runtime.id] = dest;
+  }
 }
 
 export interface ReadyMatchView {
