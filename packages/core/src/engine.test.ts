@@ -94,7 +94,7 @@ describe("throughput + congestion", () => {
   });
 });
 
-import { stampReadySince, areaForMatch, pruneOverrides, buildInitialEngineState } from "./engine";
+import { stampReadySince, areaForMatch, pruneOverrides, buildInitialEngineState, isNextHintStillValid } from "./engine";
 
 describe("readySince stamping", () => {
   it("stamps now when a match first becomes READY", () => {
@@ -127,5 +127,19 @@ describe("match area overrides", () => {
     };
     pruneOverrides(eng);
     expect(eng.matchAreaOverrides).toEqual({ "m-live": 2 });
+  });
+});
+
+describe("frozen NEXT validation", () => {
+  it("keeps a hint whose match is still READY and constraints hold", () => {
+    expect(isNextHintStillValid({ ready: true, restOk: true, kataOk: true, absent: false })).toBe(true);
+  });
+  it("drops a hint when the match is no longer READY", () => {
+    expect(isNextHintStillValid({ ready: false, restOk: true, kataOk: true, absent: false })).toBe(false);
+  });
+  it("drops a hint when rest, kata ordering, or absence fails", () => {
+    expect(isNextHintStillValid({ ready: true, restOk: false, kataOk: true, absent: false })).toBe(false);
+    expect(isNextHintStillValid({ ready: true, restOk: true, kataOk: false, absent: false })).toBe(false);
+    expect(isNextHintStillValid({ ready: true, restOk: true, kataOk: true, absent: true })).toBe(false);
   });
 });

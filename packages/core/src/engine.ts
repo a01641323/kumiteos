@@ -740,6 +740,16 @@ function scorePair(ctx: PairScoreContext, area: AreaRuntime, m: ReadyMatchView):
   return score;
 }
 
+/** Whether a frozen NEXT hint should be kept this tick. */
+export function isNextHintStillValid(checks: {
+  ready: boolean;
+  restOk: boolean;
+  kataOk: boolean;
+  absent: boolean;
+}): boolean {
+  return checks.ready && checks.restOk && checks.kataOk && !checks.absent;
+}
+
 // =============================================================
 // runEngineTick — the main entrypoint.
 // =============================================================
@@ -770,8 +780,29 @@ export function runEngineTick(state: AppState, opts: EngineTickOptions = {}): En
   const ctx: PairScoreContext = { state, eng, now };
   const usedMatchIds = new Set<string>();
 
-  // Reset hints first.
-  for (let i = 0; i < eng.areas.length; i++) eng.nextMatchPerArea[i] = null;
+  // --- Frozen NEXT: keep still-valid pins; clear the rest so they refill. ---
+  const readyById = new Map<string, ReadyMatchView>();
+  for (const rm of ready) readyById.set(rm.runtime.id, rm);
+  for (let i = 0; i < eng.areas.length; i++) {
+    const hint = eng.nextMatchPerArea[i];
+    if (!hint) { eng.nextMatchPerArea[i] = null; continue; }
+    const rm = readyById.get(hint.matchId);
+    const valid = rm
+      ? isNextHintStillValid({
+          ready: true,
+          restOk: restOk(eng, rm.a, rm.b, now),
+          kataOk: kataOrderingOk(state, eng, rm.ref.subcategoryId, rm.ref.discipline, rm.a, rm.b),
+          absent:
+            eng.competitors[rm.a]?.status === "ABSENT" ||
+            eng.competitors[rm.b]?.status === "ABSENT",
+        })
+      : false;
+    if (valid) {
+      usedMatchIds.add(hint.matchId); // pinned — not available to other areas
+    } else {
+      eng.nextMatchPerArea[i] = null;
+    }
+  }
 
   // For each area (in delay-priority order: LIBRE first, then ACTIVA, then RETRASADA),
   // pick the highest-scoring ready match.
@@ -786,6 +817,7 @@ export function runEngineTick(state: AppState, opts: EngineTickOptions = {}): En
     // match is queued there. Already-running matches stay; this just
     // stops the engine from sending more.
     if (disabledAreaSet.has(area.index)) continue;
+    if (eng.nextMatchPerArea[area.index]) continue; // keep the frozen pin
     let best: { match: ReadyMatchView; score: number } | null = null;
     for (const m of ready) {
       if (usedMatchIds.has(m.runtime.id)) continue;
@@ -853,6 +885,10 @@ export function recordMatchStart(state: AppState, matchId: string, areaIndex: nu
   // Track subcategory's first start.
   const subRuntime = eng.subcategories[m.ref.subcategoryId];
   if (subRuntime && !subRuntime.actualStartTs) subRuntime.actualStartTs = now;
+  // The started match is no longer NEXT — clear the pin so a fresh one fills.
+  if (eng.nextMatchPerArea[areaIndex]?.matchId === matchId) {
+    eng.nextMatchPerArea[areaIndex] = null;
+  }
 }
 
 /** Record that a match has ended; bump rest timers; recompute. */
