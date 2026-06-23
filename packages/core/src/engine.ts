@@ -203,6 +203,8 @@ export function buildInitialEngineState(): EngineState {
 export function ensureEngineState(state: AppState): EngineState {
   if (!state.engine) state.engine = buildInitialEngineState();
   const eng = state.engine;
+  // Backfill any config fields missing from older persisted state.
+  eng.config = { ...DEFAULT_ENGINE_CONFIG, ...eng.config };
   const areaCount = state.tournament.settings.areaCount;
   if (eng.areas.length !== areaCount) {
     const next: AreaRuntime[] = [];

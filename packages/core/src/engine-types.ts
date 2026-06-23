@@ -129,8 +129,12 @@ export interface AreaRuntime {
 export interface EngineConfig {
   /** Average match duration in SECONDS — used for delay detection. */
   avgMatchDurationSeconds: number;
-  /** performanceRatio threshold under which an area is RETRASADA. */
-  delayThreshold: number;
+  /** Fraction below the global average throughput that flags an area congested. */
+  congestionThresholdPct: number;
+  /** Minimum pending-queue depth before an area is eligible for intervention. */
+  minQueueDepthForIntervention: number;
+  /** Completed matches an area needs before its throughput counts. */
+  throughputWarmupMatches: number;
   /** Hard rest constraint between consecutive matches. */
   minRestSeconds: number;
   scoreContinuityBonus: number;
@@ -146,7 +150,9 @@ export interface EngineConfig {
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   avgMatchDurationSeconds: 180,
-  delayThreshold: 0.85,
+  congestionThresholdPct: 0.175,
+  minQueueDepthForIntervention: 3,
+  throughputWarmupMatches: 2,
   minRestSeconds: 120,
   scoreContinuityBonus: 60,
   scoreDelayPenalty: -50,
