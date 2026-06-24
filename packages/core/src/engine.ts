@@ -657,8 +657,9 @@ export function runCongestionInterventions(
   const adjacency = state.tournament.settings.areaAdjacency;
   const cfg = eng.config;
 
-  const globalAvg = computeGlobalAverageThroughput(eng.areas, now, cfg.throughputWarmupMatches);
-
+  // Congestion is read from each area's already-computed status (set during
+  // hydrate via the relative-throughput metric); slowest-first ordering uses
+  // the raw rate so the most backed-up area is relieved first.
   const congestedAreas = eng.areas
     .filter((a) => a.status === "RETRASADA" && !disabled.has(a.index))
     .map((a) => ({ area: a, t: computeThroughput(a, now) ?? Infinity }))
