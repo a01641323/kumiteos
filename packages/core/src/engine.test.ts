@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_ENGINE_CONFIG } from "./engine-types";
-import { ensureEngineState, runEngineTick, recordMatchStart, recordMatchEnd } from "./engine";
+import { ensureEngineState, runEngineTick, recordMatchStart, recordMatchEnd, runCongestionInterventions } from "./engine";
+import type { ReadyMatchView } from "./engine";
 import type { AppState } from "./types";
 import { buildInitialState, replaceParticipants, setAreaCount, startCategory } from "./state";
 import { generateMockTournament } from "./mock-tournament";
@@ -226,5 +227,89 @@ describe("runEngineTick integration", () => {
     eng.matchAreaOverrides["match-that-does-not-exist"] = 1;
     runEngineTick(state, { now: 1_001_000 });
     expect(eng.matchAreaOverrides["match-that-does-not-exist"]).toBeUndefined();
+  });
+});
+
+describe("runCongestionInterventions (orchestrator)", () => {
+  function rm(id: string, readySince: number, subId = "subC"): ReadyMatchView {
+    return {
+      runtime: { id, readySince, ref: { subcategoryId: subId, discipline: "combat" } } as any,
+      a: `${id}-A`,
+      b: `${id}-B`,
+      ref: {
+        categoryId: "cat",
+        subcategoryId: subId,
+        discipline: "combat",
+        path: { kind: "std", round: 0, idx: 0 },
+      } as any,
+    };
+  }
+
+  function harness(opts: {
+    area0Status: string;
+    area1Status: string;
+    areaCount?: number;
+    disabled?: number[];
+    adjacency?: number[][];
+  }) {
+    const areaCount = opts.areaCount ?? 2;
+    const areas = [
+      { index: 0, status: opts.area0Status, matchHistory: [], firstMatchAssignedTs: null },
+      { index: 1, status: opts.area1Status, matchHistory: [], firstMatchAssignedTs: null },
+    ].slice(0, areaCount);
+    const eng: any = {
+      config: { minQueueDepthForIntervention: 3, throughputWarmupMatches: 2, minRestSeconds: 120 },
+      areas,
+      matches: {},
+      competitors: {},
+      subcategories: {},
+      nextMatchPerArea: {},
+      matchAreaOverrides: {},
+    };
+    const state: any = {
+      tournament: {
+        settings: { areaCount, areaAdjacency: opts.adjacency },
+        areaAssignments: { subC: 0 },
+        disabledAreas: opts.disabled ?? [],
+        categoryOrder: [],
+        categories: {},
+      },
+    };
+    return { eng, state };
+  }
+
+  it("relocates the longest-waiting pending match from a congested area to a non-congested neighbor", () => {
+    const queue = [rm("m-mid", 200), rm("m-old", 100), rm("m-new", 300)]; // unsorted on purpose
+    const { eng, state } = harness({ area0Status: "RETRASADA", area1Status: "ACTIVA" });
+    runCongestionInterventions(state, eng, queue, 1_000_000);
+    // longest-waiting (smallest readySince) goes to the only neighbor, area 1
+    expect(eng.matchAreaOverrides["m-old"]).toBe(1);
+    // exactly one relocation per congested area per tick
+    expect(Object.keys(eng.matchAreaOverrides)).toEqual(["m-old"]);
+  });
+
+  it("does nothing when the congested area's queue is below minQueueDepthForIntervention", () => {
+    const queue = [rm("m-old", 100), rm("m-mid", 200)]; // 2 < 3
+    const { eng, state } = harness({ area0Status: "RETRASADA", area1Status: "ACTIVA" });
+    runCongestionInterventions(state, eng, queue, 1_000_000);
+    expect(eng.matchAreaOverrides).toEqual({});
+  });
+
+  it("does nothing when every neighbor is also congested", () => {
+    const queue = [rm("m-old", 100), rm("m-mid", 200), rm("m-new", 300)];
+    const { eng, state } = harness({ area0Status: "RETRASADA", area1Status: "RETRASADA" });
+    runCongestionInterventions(state, eng, queue, 1_000_000);
+    expect(eng.matchAreaOverrides).toEqual({});
+  });
+
+  it("skips a disabled neighbor and relocates to the next-nearest that can receive", () => {
+    // 3 areas, area 0 congested; nearest neighbor (1) disabled → relocate to 2.
+    const queue = [rm("m-old", 100), rm("m-mid", 200), rm("m-new", 300)];
+    const { eng, state } = harness({ area0Status: "RETRASADA", area1Status: "ACTIVA" });
+    eng.areas.push({ index: 2, status: "ACTIVA", matchHistory: [], firstMatchAssignedTs: null });
+    state.tournament.settings.areaCount = 3;
+    state.tournament.disabledAreas = [1];
+    runCongestionInterventions(state, eng, queue, 1_000_000);
+    expect(eng.matchAreaOverrides["m-old"]).toBe(2);
   });
 });
