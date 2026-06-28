@@ -12,6 +12,8 @@
 ![WebSocket](https://img.shields.io/badge/WebSocket-realtime-5A0EF8)
 ![Vercel](https://img.shields.io/badge/Vercel-000?logo=vercel&logoColor=white)
 
+![Operator scoring view](images/private.png)
+
 ---
 
 ## The problem
@@ -28,6 +30,16 @@ Kumite/OS turns any laptop on the venue's network into a live tournament server.
 - **One-line installer** — detects the OS, downloads the binary, launches it, and opens the app in the browser. State persists locally and re-running is non-destructive.
 - **Runs offline** — binds to the LAN and serves every device at the venue with no internet required.
 - **Licensed activation** — short-lived JWTs issued from a cloud activation endpoint, with loopback-gated superadmin access for the host operator.
+
+## Screenshots
+
+| Public scoreboard (second monitor) | Admin panel |
+|---|---|
+| ![Public scoreboard](images/public.png) | ![Admin panel](images/admin.png) |
+
+| Participant check-in | Operator scoring |
+|---|---|
+| ![Check-in](images/check-in.png) | ![Scoring](images/private.png) |
 
 ## Stack
 
