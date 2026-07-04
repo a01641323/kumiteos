@@ -9,7 +9,7 @@ import { ensureDir } from "./storage";
 import { loadOrCreateKeys, fetchCloudPublicKey, type KeyPair } from "./keys";
 import { buildRoutes } from "./routes";
 import { LicenseStore } from "./licenses";
-import { signLicenseToken } from "./auth";
+import { signLicenseToken, type SessionGuardHooks } from "./auth";
 import { saveData } from "./data-store";
 import type { KioskSession } from "@karate/core";
 import { createNetworkController, type NetworkController } from "./network/controller";
@@ -100,34 +100,37 @@ export async function createServer(
     return overrides.localAdminToken ? overrides.localAdminToken() : localAdminToken;
   }
 
-  // Offline anti-tamper guard. Records the host license window at activation
-  // and enforces it every 5s against the monotonic clock + a sealed high-water
-  // mark. On a failing verdict it force-drops every LAN client and latches a
-  // lock reason the web UI reads via GET /api/session/status.
-  let hostLockReason: LockReason | null = null;
+  // Offline anti-tamper guard. Records the host license window (re-armed on
+  // every verified request) and enforces it every 5s against the monotonic
+  // clock + a sealed high-water mark. On a failing verdict it force-drops every
+  // LAN client; the current lock reason is the manager's own `peek()`.
   const sessionManager = createSessionManager({
     dataDir: config.dataDir,
     onEnforced: (reason) => {
-      hostLockReason = reason;
       // `network` is defined just below; guarded because onEnforced can fire on start().
       try { network.disconnectAll(reason === "CLOCK_TAMPER" ? "clock_tamper" : "expired"); } catch {}
     },
   });
 
-  const observeLicense = (sub: string, iatSeconds: number, expSeconds: number) => {
-    hostLockReason = null;
-    sessionManager.observe({
-      sub,
-      issuedAt: iatSeconds * 1000,
-      expiresAt: expSeconds * 1000 + DEFAULT_OFFLINE_GRACE_MS,
-    });
+  // Hooks handed to the auth layer: re-arm from the verified JWT window on each
+  // request (so deleting the sealed file can't silently disable the guard),
+  // then enforce. Status is always derived from the manager — no shadow copy.
+  const sessionGuard: SessionGuardHooks = {
+    observe: (sub, iatSeconds, expSeconds) =>
+      sessionManager.observe({
+        sub,
+        issuedAt: iatSeconds * 1000,
+        expiresAt: expSeconds * 1000 + DEFAULT_OFFLINE_GRACE_MS,
+      }),
+    isActive: () => sessionManager.isActive(),
+    lockReason: () => sessionManager.peek(),
   };
 
   const app = express();
   app.disable("x-powered-by");
   app.use(cors());
   app.use(express.json({ limit: "5mb" }));
-  app.use(buildRoutes(config, keys, licenses, kioskSession, getLocalAdminToken, observeLicense));
+  app.use(buildRoutes(config, keys, licenses, kioskSession, getLocalAdminToken, sessionGuard));
 
   const httpServer = http.createServer(app);
   const network = createNetworkController({
@@ -142,8 +145,10 @@ export async function createServer(
   }));
 
   // Anti-tamper lock status, polled by the web UI (same origin). null = active.
+  // isActive() also lazily enforces a wall-clock expiry that fell between ticks.
   app.get("/api/session/status", (_req, res) => {
-    res.json({ locked: hostLockReason });
+    const active = sessionManager.isActive();
+    res.json({ locked: active ? null : sessionManager.peek() });
   });
 
   if (config.staticDir && fs.existsSync(config.staticDir)) {
@@ -174,7 +179,7 @@ export async function createServer(
     licenses,
     publicKeySpki: keys.publicKeySpki,
     network,
-    getHostLockReason: () => hostLockReason,
+    getHostLockReason: () => { sessionManager.isActive(); return sessionManager.peek(); },
     start() {
       return new Promise((resolve) => {
         httpServer.listen(config.port, "0.0.0.0", () => {

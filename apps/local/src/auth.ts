@@ -89,7 +89,17 @@ export interface AuthedRequest extends Request {
   auth?: LicensePayload;
 }
 
-export function requireAuth(deps: AuthDeps) {
+// Optional offline anti-tamper hooks. `observe` re-arms the guard from the
+// verified JWT window on every authenticated request (so deleting the sealed
+// session file cannot silently disable rollback detection — the next request
+// re-establishes it). `isActive`/`lockReason` gate the request once locked.
+export interface SessionGuardHooks {
+  observe(sub: string, iatSeconds: number, expSeconds: number): void;
+  isActive(): boolean;
+  lockReason(): "CLOCK_TAMPER" | "EXPIRED" | null;
+}
+
+export function requireAuth(deps: AuthDeps, guard?: SessionGuardHooks) {
   return async (req: AuthedRequest, res: Response, next: NextFunction): Promise<void> => {
     const header = req.headers.authorization;
     if (!header?.startsWith("Bearer ")) {
@@ -109,6 +119,14 @@ export function requireAuth(deps: AuthDeps) {
     if (record && record.expiresAt < Date.now()) {
       res.status(401).json({ error: "ACCESS_REVOKED" });
       return;
+    }
+    if (guard) {
+      // Re-arm tracking from this verified window, then enforce the guard.
+      guard.observe(payload.sub, payload.iat, payload.exp);
+      if (!guard.isActive()) {
+        res.status(401).json({ error: guard.lockReason() ?? "SESSION_LOCKED" });
+        return;
+      }
     }
     req.auth = payload;
     next();
