@@ -21,7 +21,7 @@ export interface NetworkController {
   listPending(): any[];
   approveConnection(clientId: string): { ok: boolean; error?: string };
   rejectConnection(clientId: string, reason?: string): { ok: boolean; error?: string };
-  disconnectAll(): void;
+  disconnectAll(reason?: string): void;
 }
 
 export function createNetworkController(opts: {
@@ -122,6 +122,6 @@ export function createNetworkController(opts: {
     listPending: () => server.getPendingList(),
     approveConnection: (id) => server.approveConnection(id),
     rejectConnection: (id, reason) => server.rejectConnection(id, reason),
-    disconnectAll: () => server.disconnectAll(),
+    disconnectAll: (reason?: string) => server.disconnectAll(reason),
   };
 }
