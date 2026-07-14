@@ -48,7 +48,7 @@ export interface WSServerOptions {
 export interface WSServer {
   start(): void;
   stop(): Promise<void>;
-  disconnectAll(): void;
+  disconnectAll(reason?: string): void;
   getClientList(): any[];
   getPendingList(): any[];
   approveConnection(clientId: string): { ok: boolean; error?: string };
@@ -378,9 +378,12 @@ export function makeServer(opts: WSServerOptions): WSServer {
     persister.flushNow();
   }
 
-  function disconnectAll() {
+  function disconnectAll(reason = "host_unlicensed") {
     for (const [ws, meta] of clients) {
       if (meta.pendingTimeout) { clearTimeout(meta.pendingTimeout); meta.pendingTimeout = null; }
+      if (ws.readyState === ws.OPEN) {
+        try { ws.send(JSON.stringify({ type: MSG.CONNECTION_REJECTED, reason })); } catch {}
+      }
       try { ws.close(); } catch {}
     }
     approvedClientIds.clear();

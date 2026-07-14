@@ -9,11 +9,13 @@ import { ensureDir } from "./storage";
 import { loadOrCreateKeys, fetchCloudPublicKey, type KeyPair } from "./keys";
 import { buildRoutes } from "./routes";
 import { LicenseStore } from "./licenses";
-import { signLicenseToken } from "./auth";
+import { signLicenseToken, type SessionGuardHooks } from "./auth";
 import { saveData } from "./data-store";
 import type { KioskSession } from "@karate/core";
 import { createNetworkController, type NetworkController } from "./network/controller";
 import { buildNetworkRoutes } from "./network/routes";
+import { createSessionManager, type LockReason } from "./session-manager";
+import { DEFAULT_OFFLINE_GRACE_MS } from "./session-guard";
 
 export interface KarateServer {
   app: Express;
@@ -24,6 +26,7 @@ export interface KarateServer {
   licenses: LicenseStore;
   publicKeySpki: string;
   network: NetworkController;
+  getHostLockReason(): LockReason | null;
   start(): Promise<{ port: number; url: string }>;
   stop(): Promise<void>;
 }
@@ -97,23 +100,56 @@ export async function createServer(
     return overrides.localAdminToken ? overrides.localAdminToken() : localAdminToken;
   }
 
+  // Offline anti-tamper guard. Records the host license window (re-armed on
+  // every verified request) and enforces it every 5s against the monotonic
+  // clock + a sealed high-water mark. On a failing verdict it force-drops every
+  // LAN client; the current lock reason is the manager's own `peek()`.
+  const sessionManager = createSessionManager({
+    dataDir: config.dataDir,
+    onEnforced: (reason) => {
+      // `network` is defined just below; guarded because onEnforced can fire on start().
+      try { network.disconnectAll(reason === "CLOCK_TAMPER" ? "clock_tamper" : "expired"); } catch {}
+    },
+  });
+
+  // Hooks handed to the auth layer: re-arm from the verified JWT window on each
+  // request (so deleting the sealed file can't silently disable the guard),
+  // then enforce. Status is always derived from the manager — no shadow copy.
+  const sessionGuard: SessionGuardHooks = {
+    observe: (sub, iatSeconds, expSeconds) =>
+      sessionManager.observe({
+        sub,
+        issuedAt: iatSeconds * 1000,
+        expiresAt: expSeconds * 1000 + DEFAULT_OFFLINE_GRACE_MS,
+      }),
+    isActive: () => sessionManager.isActive(),
+    lockReason: () => sessionManager.peek(),
+  };
+
   const app = express();
   app.disable("x-powered-by");
   app.use(cors());
   app.use(express.json({ limit: "5mb" }));
-  app.use(buildRoutes(config, keys, licenses, kioskSession, getLocalAdminToken));
+  app.use(buildRoutes(config, keys, licenses, kioskSession, getLocalAdminToken, sessionGuard));
 
   const httpServer = http.createServer(app);
   const network = createNetworkController({
     httpServer,
     dataDir: config.dataDir,
-    isHostLicensed: () => true,
+    isHostLicensed: () => sessionManager.isActive(),
   });
   app.use(buildNetworkRoutes(network, {
     issueLocalAdminToken: rotateLocalAdminToken,
     appVersion: "1.0.0",
     tournamentName: () => network.getState().state?.tournament?.activeCategoryId ?? null,
   }));
+
+  // Anti-tamper lock status, polled by the web UI (same origin). null = active.
+  // isActive() also lazily enforces a wall-clock expiry that fell between ticks.
+  app.get("/api/session/status", (_req, res) => {
+    const active = sessionManager.isActive();
+    res.json({ locked: active ? null : sessionManager.peek() });
+  });
 
   if (config.staticDir && fs.existsSync(config.staticDir)) {
     const staticDir = config.staticDir;
@@ -143,10 +179,12 @@ export async function createServer(
     licenses,
     publicKeySpki: keys.publicKeySpki,
     network,
+    getHostLockReason: () => { sessionManager.isActive(); return sessionManager.peek(); },
     start() {
       return new Promise((resolve) => {
         httpServer.listen(config.port, "0.0.0.0", () => {
           network.start();
+          sessionManager.start();
           const addr = httpServer.address();
           const port = typeof addr === "object" && addr ? addr.port : config.port;
           resolve({ port, url: `http://0.0.0.0:${port}` });
@@ -154,6 +192,7 @@ export async function createServer(
       });
     },
     async stop() {
+      sessionManager.stop();
       await network.stop();
       await new Promise<void>((r) => httpServer.close(() => r()));
     },

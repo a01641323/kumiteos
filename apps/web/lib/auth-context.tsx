@@ -364,6 +364,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let lastCloudCheck = 0;
     const CLOUD_INTERVAL_MS = 5 * 60 * 1000;
     const check = async () => {
+      // Host anti-tamper lock: the local server enforces the offline window
+      // (clock rollback / freeze) and reports it here. Checked BEFORE apiMe so
+      // the reason-bearing lock screen wins over apiMe's generic 401 path.
+      if (!guestSession && (licenseState.kind === "active" || licenseState.kind === "grace")) {
+        try {
+          const r = await fetch("/api/session/status", { cache: "no-store" });
+          if (r.ok) {
+            const { locked } = (await r.json()) as { locked: "CLOCK_TAMPER" | "EXPIRED" | null };
+            if (locked) {
+              const lastRole = licenseState.license.role;
+              const license = typeof window !== "undefined" ? window.__KARATE__?.license : null;
+              if (license) await license.reset().catch(() => null);
+              clearSessionToken();
+              setToken(null);
+              setLicenseState({ kind: "degraded", reason: locked, lastRole });
+              return;
+            }
+          }
+        } catch {
+          // No local server / network hiccup → ignore; JWT exp is the ceiling.
+        }
+      }
+
       try {
         await apiMe(token);
       } catch (e) {

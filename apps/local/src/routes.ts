@@ -13,6 +13,7 @@ import {
   requireAuth,
   type AuthedRequest,
   type AuthDeps,
+  type SessionGuardHooks,
   JWT_TTL_SECONDS,
 } from "./auth";
 import { requireLocalAdmin } from "./local-admin-auth";
@@ -39,10 +40,11 @@ export function buildRoutes(
   licenses: LicenseStore,
   kioskSession?: KioskSession | null,
   getLocalAdminToken: () => string | null = () => null,
+  guard?: SessionGuardHooks,
 ): Router {
   const deps: AuthDeps = { config, keys, licenses };
   const router = Router();
-  const auth = requireAuth(deps);
+  const auth = requireAuth(deps, guard);
   const localAdmin = requireLocalAdmin(getLocalAdminToken);
 
   // ---------------------------------------------------------------
@@ -152,6 +154,12 @@ export function buildRoutes(
                 result: "success", message: "cloud_proxy",
               });
             } catch { /* response wasn't JSON; still 200 */ }
+            try {
+              const parsed2 = JSON.parse(text) as { payload?: { sub?: string; iat?: number; exp?: number } };
+              if (parsed2.payload?.sub && parsed2.payload.iat && parsed2.payload.exp) {
+                guard?.observe(parsed2.payload.sub, parsed2.payload.iat, parsed2.payload.exp);
+              }
+            } catch { /* response wasn't JSON; guard simply isn't recorded */ }
           } else {
             logActivity(config.dataDir, {
               ts: Date.now(), event: "ACTIVATION_FAILURE", userId: null,
@@ -254,6 +262,7 @@ export function buildRoutes(
         ttlSeconds: Math.min(JWT_TTL_SECONDS, Math.max(60, secondsUntilExpiry)),
       });
       licenses.activate(record.codeId, machineFingerprint, payload.jti);
+      guard?.observe(payload.sub, payload.iat, payload.exp);
 
       activateLimiter.recordSuccess(req);
       logActivity(config.dataDir, {
